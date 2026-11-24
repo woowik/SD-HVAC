@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ระบบปรับอากาศห้องผ่าตัด</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#050b1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="OR HVAC">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE work: a technical explainer for engineers and technicians, dressed as a command-console
+   IDEA a sci-fi engineering console showing a live P&ID you can click into, matching the unit's navy-and-gold crest
+   PICTURE the schematic, 2/3 of the screen, every block a metallic plate you can open
+   COLOUR deep navy ground, gold and brushed-steel trim, one metallic hue per subsystem
+   TYPE Chakra Petch for titles and plates, IBM Plex Sans Thai for reading
+   LAYOUT laptop: crest strip, menu bar with system switch on the right, schematic 2/3 + narration 1/3; phone: schematic scrolls sideways, narration is a bottom sheet */
+:root{color-scheme:dark;--bg:#050b1a;--bg2:#0a1430;--card:#0c1834;--ink:#e8eefc;--muted:#93a6c9;--gold:#d9b24c;--gold2:#f4d98a;--line:rgba(217,178,76,.28);--steel:#8fa3c7}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 "IBM Plex Sans Thai",system-ui,sans-serif;overflow:hidden}
+button{font:inherit;color:inherit}
+.app{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr)}
+.strip{display:flex;align-items:center;gap:14px;padding:10px max(16px,2vw);padding-top:max(10px,env(safe-area-inset-top));background:linear-gradient(180deg,#0d1d45,#071028);border-bottom:1px solid var(--gold);box-shadow:0 1px 0 rgba(244,217,138,.25),0 6px 24px rgba(0,0,0,.45)}
+.strip img{height:52px;width:auto;flex:none;filter:drop-shadow(0 0 8px rgba(217,178,76,.35))}
+.strip h1{margin:0 auto 0 0;font:700 clamp(18px,2.2vw,26px)/1.15 "Chakra Petch","IBM Plex Sans Thai",sans-serif;letter-spacing:.01em;background:linear-gradient(180deg,#fff6d6 0%,#f4d98a 40%,#b98a2a 60%,#f1cf73 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tgl{border:1px solid var(--gold);background:linear-gradient(180deg,rgba(244,217,138,.18),rgba(217,178,76,.05));color:var(--gold2);border-radius:10px;padding:8px 14px;min-height:42px;cursor:pointer;font:600 14px "Chakra Petch","IBM Plex Sans Thai",sans-serif;flex:none}
+.tgl:hover{background:rgba(217,178,76,.22)}
+:focus-visible{outline:2px solid var(--gold2);outline-offset:2px}
+.bar{display:flex;align-items:center;gap:10px;padding:6px max(16px,2vw);background:linear-gradient(180deg,#0b1736,#081129);border-bottom:1px solid var(--line)}
+.nav{display:flex;gap:2px;overflow-x:auto;flex:1;scrollbar-width:thin}
+.nav button{flex:none;border:0;background:transparent;padding:8px 12px;border-radius:8px;cursor:pointer;font:500 14px "Chakra Petch","IBM Plex Sans Thai",sans-serif;min-height:40px;color:var(--muted);border-bottom:2px solid transparent}
+.nav button:hover{color:var(--ink)}
+.nav button[aria-current=page]{color:var(--gold2);border-bottom-color:var(--gold);background:linear-gradient(180deg,transparent,rgba(217,178,76,.12));border-radius:8px 8px 0 0}
+.seg{flex:none;display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:#06102a}
+.seg button{border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:7px;cursor:pointer;min-height:36px;font:600 13px "Chakra Petch",sans-serif}
+.seg button[aria-pressed=true]{background:linear-gradient(180deg,#f8e3a0,#c9992f 55%,#e8c464);color:#1a1204;box-shadow:inset 0 1px 0 rgba(255,255,255,.6)}
+.main{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);min-height:0}
+body.nopanel .main{grid-template-columns:minmax(0,1fr)}
+body.nopanel .panel{display:none}
+.stage{position:relative;display:grid;grid-template-rows:auto minmax(0,1fr) auto;min-height:0;padding:12px max(12px,1.5vw);background:radial-gradient(ellipse at 50% 0%,rgba(42,82,180,.28),transparent 60%),radial-gradient(ellipse at 100% 100%,rgba(217,178,76,.10),transparent 50%),url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%27520%27%20height%3D%27520%27%3E%3Cg%20fill%3D%27none%27%20stroke-linecap%3D%27round%27%3E%3Cg%20stroke%3D%27%233d7bd9%27%20stroke-opacity%3D%27.30%27%20stroke-width%3D%271.4%27%3E%3Cpath%20d%3D%27M0%2070H140L170%20100H330L360%2070H520%27/%3E%3Cpath%20d%3D%27M0%20300H90L120%20330H250L280%20300H520%27/%3E%3Cpath%20d%3D%27M70%200V120L100%20150V260L70%20290V520%27/%3E%3Cpath%20d%3D%27M400%200V160L370%20190V340L400%20370V520%27/%3E%3Cpath%20d%3D%27M200%20520V430L230%20400H330L360%20430V520%27/%3E%3Cpath%20d%3D%27M460%20100V240L490%20270H520%27/%3E%3C/g%3E%3Cg%20stroke%3D%27%23d9b24c%27%20stroke-opacity%3D%27.26%27%20stroke-width%3D%271.2%27%3E%3Cpath%20d%3D%27M0%20190H40L60%20210H200L220%20190H300%27/%3E%3Cpath%20d%3D%27M260%200V40L240%2060V160%27/%3E%3Cpath%20d%3D%27M520%20450H440L420%20470H300%27/%3E%3Cpath%20d%3D%27M150%20520V470L130%20450V380%27/%3E%3C/g%3E%3Cg%20stroke%3D%27%233d7bd9%27%20stroke-opacity%3D%27.18%27%20stroke-width%3D%271%27%3E%3Cpath%20d%3D%27M0%20250H30M0%20256H24M0%20262H30%27/%3E%3Cpath%20d%3D%27M310%20160H360M310%20166H352M310%20172H360%27/%3E%3C/g%3E%3C/g%3E%3Cg%20fill%3D%27%23d9b24c%27%20fill-opacity%3D%27.55%27%3E%3Ccircle%20cx%3D%27140%27%20cy%3D%2770%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27360%27%20cy%3D%2770%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27300%27%20cy%3D%27190%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27240%27%20cy%3D%27160%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27300%27%20cy%3D%27470%27%20r%3D%273%27/%3E%3Ccircle%20cx%3D%27130%27%20cy%3D%27380%27%20r%3D%273%27/%3E%3C/g%3E%3Cg%20fill%3D%27%234ea3ff%27%20fill-opacity%3D%27.6%27%3E%3Ccircle%20cx%3D%2770%27%20cy%3D%27120%27%20r%3D%272.5%27/%3E%3Ccircle%20cx%3D%27400%27%20cy%3D%27160%27%20r%3D%272.5%27/%3E%3Ccircle%20cx%3D%27250%27%20cy%3D%27330%27%20r%3D%272.5%27/%3E%3Ccircle%20cx%3D%27330%27%20cy%3D%27400%27%20r%3D%272.5%27/%3E%3Ccircle%20cx%3D%27460%27%20cy%3D%27100%27%20r%3D%272.5%27/%3E%3C/g%3E%3Cg%20fill%3D%27none%27%20stroke%3D%27%233d7bd9%27%20stroke-opacity%3D%27.35%27%3E%3Crect%20x%3D%27300%27%20y%3D%27250%27%20width%3D%2760%27%20height%3D%2734%27%20rx%3D%273%27/%3E%3Crect%20x%3D%2720%27%20y%3D%27400%27%20width%3D%2744%27%20height%3D%2726%27%20rx%3D%273%27/%3E%3C/g%3E%3C/svg%3E") 0 0/520px 520px,linear-gradient(rgba(120,150,220,.05) 1px,transparent 1px) 0 0/28px 28px,linear-gradient(90deg,rgba(120,150,220,.05) 1px,transparent 1px) 0 0/28px 28px,var(--bg)}
+.stage::before,.stage::after{content:'';position:absolute;width:46px;height:46px;border:2px solid rgba(217,178,76,.75);pointer-events:none}
+.stage::before{left:8px;top:8px;border-right:0;border-bottom:0}
+.stage::after{right:8px;bottom:8px;border-left:0;border-top:0}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs:empty{display:none}
+.tabs button{border:1px solid var(--line);background:#0a1532;color:var(--muted);border-radius:999px;padding:6px 14px;min-height:40px;cursor:pointer;font:600 13px "Chakra Petch","IBM Plex Sans Thai",sans-serif}
+.tabs button[aria-pressed=true]{background:linear-gradient(180deg,#f8e3a0,#c9992f 55%,#e8c464);color:#1a1204;border-color:#f4d98a}
+.dia{min-height:0;overflow:auto}
+.dia svg{display:block;width:100%;height:auto;max-width:calc(66.667vw - 3vw - 4px);margin:0 auto}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--muted);padding-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.legend i{display:inline-block;width:26px;height:0;border-top:2.5px solid}
+.panel{border-left:1px solid var(--line);overflow:auto;padding:18px 22px 40px;background:linear-gradient(180deg,#0b1736,#070f24)}
+.panel h2{font:700 22px/1.25 "Chakra Petch","IBM Plex Sans Thai",sans-serif;margin:0 0 10px;color:var(--gold2)}
+.panel h3{font:600 16px "Chakra Petch","IBM Plex Sans Thai",sans-serif;margin:20px 0 6px;color:#cfdcf7}
+.panel p{margin:0 0 10px}
+.panel ol,.panel ul{margin:0 0 10px;padding-left:22px}
+.panel li{margin-bottom:6px}
+.panel b{color:#fff}
+.panel .hint{font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:18px}
+.back{display:inline-block;margin-bottom:10px;color:var(--gold2);cursor:pointer;font-size:14px;background:none;border:0;padding:4px 0}
+.note{display:block;font-size:13px;color:#ffe7a6;background:rgba(217,178,76,.1);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:0 0 10px}
+.chips{display:grid;grid-template-columns:repeat(auto-fit,minmax(6.5em,1fr));gap:6px;margin:10px 0}
+.chips div{background:linear-gradient(180deg,#16264c,#0c1834);border:1px solid rgba(143,163,199,.25);border-radius:8px;padding:6px 8px;font-size:13px;color:var(--muted)}
+.chips b{display:block;font:700 17px "Chakra Petch",sans-serif;color:var(--gold2);white-space:nowrap}
+.pc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;margin:8px 0}
+.pc div{border-radius:10px;padding:10px 12px;font-size:14px}
+.pc ul{padding-left:18px;margin:4px 0 0}
+.pc .p{background:linear-gradient(180deg,rgba(63,224,176,.16),rgba(63,224,176,.05));border:1px solid rgba(63,224,176,.3)}
+.pc .c{background:linear-gradient(180deg,rgba(255,122,69,.16),rgba(255,122,69,.05));border:1px solid rgba(255,122,69,.3)}
+.pc h4{margin:0;font:600 14px "Chakra Petch","IBM Plex Sans Thai",sans-serif}
+table.t{width:100%;border-collapse:collapse;font-size:14px;margin:8px 0}
+table.t th,table.t td{border-bottom:1px solid rgba(143,163,199,.2);padding:7px 6px;text-align:left;vertical-align:top}
+table.t th{font:600 13px "Chakra Petch","IBM Plex Sans Thai",sans-serif;color:var(--gold2)}
+.star{color:var(--gold2);letter-spacing:1px;white-space:nowrap}
+.cmpwrap{overflow:auto;height:100%}
+.cmpcard{background:linear-gradient(180deg,rgba(22,38,76,.85),rgba(10,20,46,.9));border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:inset 0 1px 0 rgba(244,217,138,.15)}
+.cmpcard h2{font:700 clamp(18px,2vw,24px)/1.2 "Chakra Petch","IBM Plex Sans Thai",sans-serif;margin:0 0 4px;color:var(--gold2)}
+.cmpcard p.sub{color:var(--muted);margin:0 0 10px;font-size:14px}
+.cmpcard table.t td:first-child{color:#cfdcf7;font-weight:500;width:24%}
+.cmpcard table.t td{font-size:15px}
+svg text{font-family:"IBM Plex Sans Thai",system-ui,sans-serif}
+.n rect.b{stroke-width:1.2;stroke-opacity:.9}
+.n rect.s{fill:url(#sheen);pointer-events:none}
+.n .t1{font:600 17px "Chakra Petch","IBM Plex Sans Thai",sans-serif;fill:#fff}
+.n .t2{font-size:15px;fill:#f2f5fb}
+.n text{paint-order:stroke;stroke:rgba(0,0,0,.55);stroke-width:3px;stroke-linejoin:round}
+.hit{cursor:pointer}
+.hit:hover rect.b{stroke-width:2.6;filter:drop-shadow(0 0 6px rgba(244,217,138,.55))}
+.hit:focus{outline:none}
+.hit:focus-visible rect.b,.hit.sel rect.b{stroke:#f4d98a;stroke-width:3;filter:drop-shadow(0 0 8px rgba(244,217,138,.75))}
+.cont{fill:rgba(10,20,46,.35);stroke-width:1.3;stroke-dasharray:7 5}
+.cl{font:600 16px "Chakra Petch","IBM Plex Sans Thai",sans-serif}
+.lbl{font-size:15px;font-weight:500;fill:#b9c8e6;paint-order:stroke;stroke:#050b1a;stroke-width:4px}
+.ln{fill:none;stroke-width:2.2}
+@media(max-width:760px){
+.strip img{height:40px}
+.bar{flex-wrap:wrap}
+.nav{order:2;width:100%;flex:none}
+.seg{order:1;margin-left:auto}
+.main{grid-template-columns:minmax(0,1fr)}
+.stage{padding-bottom:calc(42vh + 12px)}
+body.nopanel .stage{padding-bottom:12px}
+.dia svg{min-width:780px;max-width:none;height:auto}
+.panel{position:fixed;left:0;right:0;bottom:0;max-height:42vh;border-left:0;border-top:1px solid var(--gold);border-radius:16px 16px 0 0;box-shadow:0 -8px 30px rgba(0,0,0,.6);z-index:5;padding:14px 16px calc(28px + env(safe-area-inset-bottom))}
+.pc{grid-template-columns:minmax(0,1fr)}
+.cmpcard table.t td{font-size:14px}
+}
+@media(prefers-reduced-motion:no-preference){.flow{animation:dash 1.6s linear infinite}@keyframes dash{to{stroke-dashoffset:-22}}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="strip">
+<img src="data:image/png;base64,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" alt="Support Division">
+<h1>ระบบปรับอากาศห้องผ่าตัด</h1>
+<button class="tgl" id="ptgl" aria-controls="panel" aria-expanded="true">ซ่อนคำบรรยาย</button>
+</header>
+<div class="bar">
+<nav class="nav" id="nav" aria-label="เมนู"></nav>
+<div class="seg" role="group" aria-label="เลือกระบบ"><button id="m-doas" data-mode="doas">DOAS</button><button id="m-rh" data-mode="reheat">Cool–Reheat</button></div>
+</div>
+<div class="main">
+<section class="stage">
+<div class="tabs" id="tabs"></div>
+<div class="dia" id="dia"></div>
+<div class="legend" id="legend"></div>
+</section>
+<aside class="panel" id="panel" aria-live="polite"></aside>
+</div>
+</div>
+<script>
+{
+const COL={chw:'#4ea3ff',cw:'#e0a840',ref:'#ff5c9a',hpp:'#ffb0d4',hw:'#ff7a45',hwr:'#e0a840',air:'#3fe0b0',sig:'#8fa3c7',hot:'#ff7a45',liq:'#e0a840',cold:'#4ea3ff',pwr:'#f4d98a'};
+const LEG={chw:['น้ำเย็นจ่าย','chw'],chwr:['น้ำเย็นกลับ','chw',1],cw:['น้ำระบายความร้อน','cw'],ref:['น้ำยาแอร์','ref'],hp:['ท่อฮีทไปป์','hpp'],hw:['น้ำร้อน','hw'],hwr:['น้ำร้อนกลับ','hwr',1],air:['ลม','air'],ra:['ลมกลับ','air',1],sig:['สัญญาณควบคุม','sig',1],hot:['แก๊สร้อน','hot'],liq:['ของเหลว','liq'],cold:['น้ำยาเย็น','cold'],pwr:['ไฟฟ้า','pwr']};
+const RGB=a=>'rgb('+a.join(',')+')';
+const GR={ahu:[[11,61,38],[31,122,77],[95,199,146],[46,149,98],[15,74,46]],hot:[[74,10,20],[143,19,46],[212,89,107],[166,48,63],[90,14,26]],amb:[[138,106,34],[217,177,88],[246,227,166],[226,190,106],[156,122,44]],chw:[[20,37,92],[55,87,168],[138,164,230],[77,110,194],[26,46,106]],pipe:[[46,52,70],[95,106,134],[174,184,206],[125,135,159],[58,65,84]],room:[[74,36,16],[142,78,34],[201,138,82],[169,99,47],[90,46,20]],doas:[[62,90,18],[127,163,50],[201,230,138],[157,190,76],[76,106,24]],gry:[[24,28,38],[52,58,74],[104,112,132],[70,77,96],[30,34,46]],hp:[[11,61,38],[31,122,77],[95,199,146],[46,149,98],[15,74,46]]};
+const STK=Object.fromEntries(Object.entries(GR).map(([k,c])=>[k,RGB(c[2])]));
+const S={view:'overview',mode:'doas',tab:'heater',cmp:'sys',info:null};
+try{const m=localStorage.getItem('or-mode');if(m==='doas'||m==='reheat')S.mode=m}catch(e){}
+const defs=()=>'<defs>'+Object.entries(COL).map(([k,c])=>`<marker id="m-${k}" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M1 1L9 5L1 9z" fill="${c}"/></marker>`).join('')+Object.entries(GR).map(([k,c])=>`<linearGradient id="g-${k}" x1="0" y1="0" x2="0" y2="1">${c.map((v,i)=>`<stop offset="${i/4}" stop-color="${RGB(v)}"/>`).join('')}</linearGradient>`).join('')+'<linearGradient id="sheen" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".18"/><stop offset=".35" stop-color="#fff" stop-opacity="0"/><stop offset=".7" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".08"/></linearGradient></defs>';
+const B=(x,y,w,h,k,t1,t2,o={})=>{const a=o.go?` data-go="${o.go}"`:'',b=o.i?` data-i="${o.i}"`:'',hit=o.go||o.i;const cy=y+h/2;const lines=t2?(Array.isArray(t2)?t2:[t2]):[];const top=cy-lines.length*10.5;return `<g class="n${hit?' hit':''}"${a}${b}${hit?` tabindex="0" role="button" aria-label="${t1}"`:''}><rect class="b" x="${x}" y="${y}" width="${w}" height="${h}" rx="9" fill="url(#g-${k})" stroke="${STK[k]}"/><rect class="s" x="${x+1}" y="${y+1}" width="${w-2}" height="${h-2}" rx="8"/><text class="t1" x="${x+w/2}" y="${top}" text-anchor="middle" dominant-baseline="central">${t1}</text>${lines.map((l,i)=>`<text class="t2" x="${x+w/2}" y="${top+22+i*20}" text-anchor="middle" dominant-baseline="central">${l}</text>`).join('')}</g>`};
+const L=(k,d,dash,w)=>`<path class="ln${dash?' flow':''}" d="${d}" stroke="${COL[k]}"${dash?' stroke-dasharray="7 4"':''}${w?` stroke-width="${w}"`:''} marker-end="url(#m-${k})"/>`;
+const P=(k,d,dash,w)=>`<path class="ln" d="${d}" stroke="${COL[k]}"${dash?' stroke-dasharray="7 4"':''}${w?` stroke-width="${w}"`:''}/>`;
+const C=(x,y,w,h,col,label,lx,ly,o={})=>`<rect class="cont" x="${x}" y="${y}" width="${w}" height="${h}" rx="14" stroke="${col}"/><text class="cl${o.go?' hit':''}" x="${lx}" y="${ly}" fill="${col}"${o.go?` data-go="${o.go}" tabindex="0" role="button"`:''}${o.end?' text-anchor="end"':''}>${label}</text>`;
+const AL=(a,b,cy,Y,t)=>T((a+b)/2,(t.length*8.4>b-a-10)?Y-13:cy-14,t);
+const T=(x,y,s,a='middle')=>`<text class="lbl" x="${x}" y="${y}" text-anchor="${a}" dominant-baseline="central">${s}</text>`;
+const svg=(w,h,body,title)=>`<svg viewBox="0 0 1000 ${h}" role="img" aria-label="${title}">${defs()}${w===1000?body:`<g transform="translate(${(1000-w)/2},0)">${body}</g>`}</svg>`;
+const pc=(p,c)=>`<div class="pc"><div class="p"><h4>ข้อดี</h4><ul>${p.map(x=>`<li>${x}</li>`).join('')}</ul></div><div class="c"><h4>ข้อด้อย</h4><ul>${c.map(x=>`<li>${x}</li>`).join('')}</ul></div></div>`;
+const chips=a=>`<div class="chips">${a.map(([v,l])=>`<div><b>${v}</b>${l}</div>`).join('')}</div>`;
+const tbl=(h,rows)=>`<table class="t"><tr>${h.map(x=>`<th>${x}</th>`).join('')}</tr>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</table>`;
+const st=n=>`<span class="star">${'★'.repeat(n)}</span>`;
+const HINT='<p class="hint">คลิกกล่องในแผนภูมิเพื่อดูคำอธิบายของแต่ละส่วน</p>';
+const doas=()=>S.mode==='doas';
+const FILTER=['กรองอากาศ',`<p>ระดับไส้กรองตามมาตรฐานยุโรป EN 779 ตัวเลขยิ่งสูงยิ่งกรองละเอียด</p>${tbl(['ระดับ','ดักอะไรได้','ใช้ตรงไหน'],[['G3–G4 (หยาบ)','ฝุ่นใหญ่ เส้นใย แมลง','ด่านแรกของเครื่อง'],['F7 (ละเอียด)','ฝุ่นละเอียด ละอองเกสร ส่วนใหญ่ของ PM2.5','DOAS, AHU ทั่วไป'],['F9 (ละเอียดมาก)','ฝุ่นละเอียดเกือบทั้งหมด แบคทีเรียส่วนใหญ่','AHU ห้องผ่าตัด ก่อน HEPA'],['H13–H14 (HEPA)','อนุภาคเล็กมาก 99.95–99.995%','แผง laminar']])}<ul><li>ระบบห้องผ่าตัดกรอง 3 ชั้น คือ <b>G4 → F7–F9 → HEPA H14</b> ไส้กรองชั้นหน้าดักฝุ่นไว้ก่อน ไส้กรอง HEPA ซึ่งราคาแพงจึงใช้งานได้นานขึ้น</li><li>EN 779 ถูกแทนด้วยมาตรฐาน ISO 16890 แล้ว ในสเปกใหม่อาจเจอเป็น ePM1 เช่น F7 ใกล้เคียง ePM1 50–65% และ F9 ใกล้เคียง ePM1 80% ขึ้นไป</li><li><b>การดูแล:</b> เปลี่ยนไส้กรองตามค่าความดันตกคร่อมไส้กรอง (differential pressure) ที่วัดได้ ไม่ใช่ตามเวลาอย่างเดียว</li></ul>`];
+
+const V={};
+/* ---------- overview ---------- */
+V.overview={name:'ภาพรวม',legend:()=>doas()?['chw','chwr','air','ra']:['chw','chwr','ref','air','ra'],
+svg:()=>{const d=doas();let s='';
+s+=B(30,30,260,90,'chw','ระบบน้ำชิล',['ชิลเลอร์ · ปั๊ม · คูลลิ่งทาวเวอร์'],{go:'chw'});
+s+=B(370,30,270,90,'pipe','ท่อและชุดวาล์ว',['บอลวาล์ว · มอเตอร์วาล์ว'],{go:'valves'});
+s+=L('chw','M290 60 L367 60')+L('chw','M370 100 L293 100',1)+T(330,46,'7°C')+T(330,116,'12°C');
+s+=C(230,180,755,150,'#5fc792','AHU ห้องผ่าตัด',246,202,{go:'ahu'});
+const Y=235,H=80,cy=Y+H/2;
+let xs,w,bx,lab;
+if(d){xs=[255,445,635,825];w=120;bx=[['ahu','ผสมลม',null,{go:'ahu'}],['ahu','คอยล์แห้ง',null,{go:'ahu'}],['hot','Heater trim',['1–3 kW'],{go:'reheat'}],['ahu','พัดลม',null,{go:'ahu'}]];lab=['16°C','15°C','15–17°C'];}
+else{xs=[245,395,545,695,845];w=100;bx=[['ahu','ผสมลม',null,{go:'ahu'}],['ahu','คอยล์',['น้ำชิล'],{go:'ahu'}],['ahu','คอยล์ DX',null,{go:'ahu'}],['hot','Reheat',['~10 kW'],{go:'reheat'}],['ahu','พัดลม',null,{go:'ahu'}]];lab=['20°C','12°C','6°C','15°C'];}
+bx.forEach(([k,a,b,o],i)=>s+=B(xs[i],Y,w,H,k,a,b,o));
+for(let i=0;i<xs.length-1;i++){const a=xs[i]+w,b=xs[i+1];s+=L('air',`M${a} ${cy} L${b-3} ${cy}`)+AL(a,b,cy,Y,lab[i]);}
+const cw=d?xs[1]:xs[1];s+=L('chw',`M${cw+25} 120 L${cw+25} ${Y-3}`)+L('chw',`M${cw+w-25} ${Y} L${cw+w-25} 123`,1);
+const mx=xs[0]+w/2,fx=xs[xs.length-1]+w/2;
+if(d){
+s+=B(25,235,150,80,'doas','DOAS',['รีดความชื้น'],{go:'doas'});
+s+=L('air',`M175 ${cy} L${xs[0]-3} ${cy}`)+T((175+xs[0])/2,cy-14,'11°C');
+s+=B(25,410,150,64,'gry','อากาศภายนอก',['ชื้น']);
+s+=L('air','M100 410 L100 318')+T(108,364,'33°C','start');
+s+=B(25,148,150,48,'pipe','ชุดวาล์ว',null,{go:'valves'});
+s+=L('chw','M60 120 L60 145')+L('chw','M60 196 L60 232')+L('chw','M140 235 L140 199',1)+L('chw','M140 148 L140 123',1);
+}else{
+s+=B(25,235,150,80,'gry','อากาศภายนอก',['ชื้น']);
+s+=L('air',`M175 ${cy} L${xs[0]-3} ${cy}`)+T((175+xs[0])/2,cy-14,'33°C');
+s+=B(720,30,250,90,'ahu','คอนเดนซิ่งยูนิต',['ของคอยล์ DX · ภายนอก'],{go:'ahu'});
+s+=L('ref','M780 120 L780 165 L625 165 L625 232')+L('ref','M565 235 L565 150 L860 150 L860 123',1);
+s+=T(772,140,'2–5°C','end')+T(868,138,'10°C','start');
+}
+s+=C(230,400,755,230,'#c98a52','ห้องผ่าตัด · 18°C · RH 40–50%',246,422,{go:'room'});
+s+=B(600,440,300,56,'room','แผง laminar + HEPA H14',null,{go:'room'});
+s+=L('air',`M${fx} ${Y+H} L${fx} 437`)+T(fx+8,380,d?'15–17°C':'15°C','start');
+[660,750,840].forEach(x=>s+=L('air',`M${x} 498 L${x} 540`));
+s+=B(640,544,220,38,'room','เตียงผ่าตัด',null,{go:'room'});
+s+=B(250,580,130,38,'room','ช่องลมกลับ',null,{go:'room'})+B(880,590,95,34,'room','ลมกลับ',null,{go:'room'});
+s+=L('air','M638 566 L383 596')+L('air','M862 570 L900 587');
+s+=P('air','M927 624 L927 648 L215 648 L215 599',1)+L('air',`M250 599 L215 599 L215 360 L${mx} 360 L${mx} 318`,1);
+s+=T(222,378,'ลมกลับ 18°C','start');
+return svg(1000,665,s,'แผนภูมิภาพรวมระบบ')},
+text:()=>doas()?`<h2>ภาพรวม: ระบบ DOAS</h2>
+<p><b>DOAS (Dedicated Outdoor Air System)</b> รับเฉพาะอากาศภายนอก (~1,100 m³/h สำหรับ 2 ห้อง) มารีดความชื้นจนแห้งจัด แล้วส่งให้ AHU ของแต่ละห้อง ลมกลับจากห้องไม่ต้องเข้า DOAS เพราะแห้งอยู่แล้ว</p>
+<h3>ลำดับใน DOAS</h3>
+<ol><li><b>Heat pipe ฝั่ง pre-cool:</b> ลดอุณหภูมิอากาศภายนอกจาก <b>33°C</b> เหลือประมาณ <b>27°C</b></li><li><b>คอยล์น้ำชิล:</b> ทำเย็นต่อเหลือประมาณ <b>14°C</b> และเริ่มรีดความชื้น</li><li><b>คอยล์ DX:</b> ย้ายมาอยู่ที่ DOAS ทำเย็นถึงประมาณ <b>5°C</b> รีดความชื้นจนจุดน้ำค้างเหลือ 4–5°C</li><li><b>Heat pipe ฝั่ง reheat:</b> อุ่นลมกลับเป็นประมาณ <b>11°C</b> กันไม่ให้ท่อลมมีน้ำเกาะ</li></ol>
+<p><b>Heat pipe</b> คือท่อปิดสนิทที่มีสารทำความเย็นอยู่ข้างใน ทำงานเองตลอดเวลาโดยไม่ใช้ไฟ อาศัยความต่างของแรงดันในท่อกับแรงโน้มถ่วง จึงติดตั้งให้ฝั่ง reheat สูงกว่าฝั่ง pre-cool เล็กน้อย</p>
+<h3>ใน AHU ของแต่ละห้อง</h3>
+<ol><li>ลมเย็นและแห้งจาก DOAS ผสมกับลมกลับ (18°C) ได้ประมาณ <b>16°C</b></li><li>ผ่าน<b>คอยล์น้ำชิลแบบคอยล์แห้ง (dry coil)</b> ซึ่งทำความเย็นอย่างเดียวเพื่อคุมอุณหภูมิห้อง ผิวคอยล์ต้องอุ่นกว่าจุดน้ำค้างของลมผสม จะได้ไม่มีน้ำควบแน่น</li><li><b>Heater ตัวเล็ก (1–3 kW)</b> ใช้ปรับอุณหภูมิละเอียดเท่านั้น</li><li>ลมที่ส่งเข้าแผง laminar อยู่ประมาณ <b>15–17°C</b></li></ol>
+<h3>เป้าหมายห้องผ่าตัด</h3>${chips([['18°C','อุณหภูมิ'],['40–50%','ความชื้น'],['25–35','ACH'],['≤ 55','dB(A)'],['+10–15 Pa','แรงดันบวก']])}
+<p class="hint">คลิกกล่องในแผนภูมิ หรือเลือกจากเมนูด้านบน เพื่อดูรายละเอียดแต่ละระบบ · ตัวเลขคิดจากห้องสมมติ 6×6×3 ม.</p>`:`<h2>ภาพรวม: ระบบ Cool–Reheat</h2>
+<ol><li><b>อากาศภายนอก</b> (~33°C ชื้น) เข้า AHU แล้วผสมกับ<b>ลมกลับจากห้อง</b> (18°C) อุณหภูมิลมผสมลดลงเหลือประมาณ <b>20°C</b></li>
+<li><b>คอยล์น้ำชิล (คอยล์เปียก):</b> น้ำชิล 7°C ดึงความร้อนออกจากลม ลมเย็นลงเหลือประมาณ <b>12–13°C</b> ไอน้ำในอากาศควบแน่นเป็นหยดน้ำ อากาศจึงแห้งลง</li>
+<li><b>คอยล์ DX (Direct Expansion):</b> ลมยังชื้นเกินเป้า และน้ำชิลทำความเย็นได้แค่นี้ จึงต้องเพิ่มคอยล์ DX ซึ่งใช้น้ำยาแอร์ทำความเย็นให้ลมโดยตรง ลมเย็นลงถึงประมาณ <b>6°C</b> และรีดความชื้นออกได้อีก<br>น้ำยามาจาก<b>คอนเดนซิ่งยูนิต</b>ที่ตั้งภายนอกอาคาร น้ำยาเย็น <b>~2–5°C</b> ไหลเข้าคอยล์ ไอน้ำยา <b>~10°C</b> ไหลกลับไปที่คอนเดนซิ่งยูนิต ซึ่งระบายความร้อนทิ้งสู่อากาศภายนอก</li>
+<li><b>Reheat (Heater / Hot gas / Heat pump):</b> ลมที่ 6°C เย็นเกินไปสำหรับห้อง จึงต้องอุ่นกลับเป็นประมาณ <b>15°C</b> ใช้ความร้อนประมาณ <b>10 kW ต่อห้อง</b></li>
+<li><b>พัดลม → แผง Laminar:</b> ส่งลมประมาณ 15°C ลงคลุมเตียง ห้องได้ <b>18°C ความชื้น 40–50%</b></li></ol>
+<h3>เป้าหมายห้องผ่าตัด</h3>${chips([['18°C','อุณหภูมิ'],['40–50%','ความชื้น'],['25–35','ACH'],['≤ 55','dB(A)'],['+10–15 Pa','แรงดันบวก']])}
+<p class="hint">คลิกกล่องในแผนภูมิ หรือเลือกจากเมนูด้านบน เพื่อดูรายละเอียดแต่ละระบบ · ตัวเลขคิดจากห้องสมมติ 6×6×3 ม.</p>`,
+items:{filter:FILTER}};
+
+/* ---------- chilled water ---------- */
+V.chw={name:'ระบบน้ำชิล',legend:()=>['chw','chwr','ref','cw'],
+svg:()=>{let s='';
+s+=B(40,40,200,70,'chw','คูลลิ่งทาวเวอร์',['ระบายความร้อนทิ้ง'],{i:'ct'});
+s+=B(40,170,200,70,'chw','ปั๊มน้ำระบายความร้อน',['condenser pump'],{i:'cwp'});
+s+=C(300,40,340,290,'#8aa4e6','ชิลเลอร์',316,62,{});
+s+=B(320,72,300,56,'gry','Condenser',['น้ำยาควบแน่น'],{i:'cond'});
+s+=B(320,160,120,66,'amb','Expansion',['valve'],{i:'xv'});
+s+=B(500,160,120,66,'gry','Compressor',['อัดไอน้ำยา'],{i:'comp'});
+s+=T(378,142,'38–40°C','start')+T(378,241,'3–5°C','start');
+s+=B(320,258,300,56,'pipe','Evaporator',['น้ำยาระเหย'],{i:'evap'});
+s+=L('ref','M370 128 L370 157',0,2.6)+L('ref','M370 226 L370 255',0,2.6)+L('ref','M565 258 L565 229',0,2.6)+L('ref','M565 160 L565 131',0,2.6);
+s+=L('cw','M320 90 L243 90')+L('cw','M140 110 L140 167')+L('cw','M240 205 L280 205 L280 115 L317 115');
+s+=T(268,76,'37°C')+T(262,222,'32°C');
+s+=B(680,240,180,60,'chw','ปั๊มน้ำเย็น',['ดันน้ำวนทั้งระบบ'],{i:'chwp'});
+s+=L('chw','M680 286 L623 286',1);
+s+=B(40,380,380,46,'pipe','ท่อเมนจ่าย',null,{i:'smain'});
+s+=B(480,380,380,46,'pipe','ท่อเมนกลับ',null,{i:'rmain'});
+s+=L('chw','M380 314 L380 377')+L('chw','M770 380 L770 303',1)+T(388,346,'7°C','start')+T(778,342,'12°C','start');
+s+=B(300,480,300,64,'ahu','AHU / FCU / DOAS',['ทุกเครื่องในอาคาร'],{i:'load'});
+s+=L('chw','M230 426 L230 512 L297 512')+L('chw','M600 512 L670 512 L670 429',1);
+return svg(900,570,s,'แผนภูมิระบบน้ำชิล')},
+text:()=>`<h2>ระบบน้ำชิล: 3 วงจรที่ทำงานต่อกัน</h2>
+<h3>วงจรที่ 1: น้ำเย็น (สีฟ้า)</h3>
+<p>ชิลเลอร์ทำน้ำให้เย็นถึง <b>7°C</b> ส่งออกทางท่อเมนจ่าย ผ่านชุดวาล์วและท่อแยก ไปรับความร้อนจากลมที่คอยล์ของ AHU, FCU และ DOAS น้ำจึงอุ่นขึ้นเป็น <b>12°C</b> จากนั้นปั๊มน้ำเย็นดันน้ำนี้กลับเข้าชิลเลอร์เพื่อทำให้เย็นอีกครั้ง</p>
+<h3>วงจรที่ 2: น้ำยาแอร์ในชิลเลอร์ (สีชมพู)</h3>
+<ol><li>น้ำยาเหลวความดันสูงไหลผ่าน<b>วาล์วลดความดัน (Expansion Valve)</b> อุณหภูมิลดลงเหลือประมาณ <b>3–5°C</b></li><li>เข้า <b>Evaporator</b> ของชิลเลอร์ ดึงความร้อนออกจากน้ำชิล (12 → 7°C) น้ำยาระเหยเป็นไอความดันต่ำ</li><li><b>Compressor</b> ดูดไอน้ำยาไปอัด ความดันและอุณหภูมิสูงขึ้น</li><li><b>Condenser</b> ระบายความร้อนออกจากน้ำยาให้กับน้ำระบายความร้อน (วงจรที่ 3) น้ำยาควบแน่นกลับเป็นของเหลวที่ประมาณ <b>38–40°C</b> แล้ววนกลับไปที่วาล์วลดความดัน</li></ol>
+<h3>วงจรที่ 3: น้ำระบายความร้อน (สีน้ำตาล)</h3>
+<p>น้ำระบายความร้อนรับความร้อนจาก Condenser ของชิลเลอร์ อุ่นขึ้นเป็น <b>37°C</b> แล้วไหลไปที่<b>คูลลิ่งทาวเวอร์</b> ระบายความร้อนทิ้งสู่อากาศ จนเย็นลงเหลือ <b>32°C</b> จากนั้นปั๊มน้ำระบายความร้อนส่งน้ำกลับเข้าชิลเลอร์อีกครั้ง</p>
+<h3>ข้อดีข้อเสียของระบบน้ำชิล</h3>
+${pc(['ประหยัดไฟ ~0.55–0.7 kW ต่อตันความเย็น','ส่งความเย็นได้ไกลถึงทุกชั้น','ในอาคารมีแต่ท่อน้ำ ไม่มีน้ำยาแอร์ในห้องที่มีคน','มีเครื่องสำรอง N+1 ได้ง่าย ดูแลรวมจุดเดียว','อายุใช้งาน 20–30 ปี'],['ลงทุนครั้งแรกสูง ต้องมีห้องเครื่องและคูลลิ่งทาวเวอร์','ต้องใช้ช่างชำนาญ และดูแลคุณภาพน้ำ','ท่อน้ำเย็นเหนือฝ้าต้องหุ้มฉนวนดี ไม่อย่างนั้นน้ำหยด','น้ำ 7°C เย็นไม่พอรีดความชื้นถึง 40–50% ต้องมี DX ช่วย'])}
+<p>ถ้าเป็นชิลเลอร์แบบระบายความร้อนด้วยอากาศ (air-cooled) จะไม่มีคูลลิ่งทาวเวอร์และปั๊มน้ำระบายความร้อน Condenser ของชิลเลอร์ใช้พัดลมระบายความร้อนทิ้งสู่อากาศโดยตรง</p>${HINT}`,
+items:{
+ct:['คูลลิ่งทาวเวอร์','<p>ระบายความร้อนที่ชิลเลอร์ดึงออกมาทิ้งสู่อากาศ น้ำ ~37°C ถูกพ่นผ่านแผงด้านใน พัดลมดูดอากาศผ่าน น้ำบางส่วนระเหยพาความร้อนออกไป น้ำที่เหลือเย็นลงเหลือ ~32°C</p><p><b>ดูแล:</b> เติมน้ำชดเชยส่วนที่ระเหย ทำความสะอาดแผงและอ่าง และบำบัดน้ำเพื่อกันตะกรัน ตะไคร่ และเชื้อ Legionella</p>'],
+cwp:['ปั๊มน้ำระบายความร้อน','<p>ดันน้ำระหว่าง Condenser ของชิลเลอร์กับคูลลิ่งทาวเวอร์ ถ้าปั๊มหยุด ชิลเลอร์จะระบายความร้อนไม่ได้และตัดการทำงานเพื่อป้องกันตัวเอง ระบบจริงจึงมีปั๊มสำรอง</p>'],
+cond:['Condenser (ในชิลเลอร์)','<p>ตัวแลกเปลี่ยนความร้อนระหว่างน้ำยาร้อนกับน้ำระบายความร้อน น้ำยาคายความร้อนแล้วควบแน่นเป็นของเหลวที่ ~38–40°C ส่วนน้ำระบายความร้อนอุ่นขึ้นจาก ~32 เป็น ~37°C</p>'],
+xv:['Expansion Valve (วาล์วลดความดัน)','<p>ลดความดันน้ำยาเหลว น้ำยาจึงเย็นจัดทันทีเหลือ ~3–5°C ก่อนเข้า Evaporator และยังคุมปริมาณน้ำยาให้พอดีกับภาระความเย็น</p>'],
+comp:['Compressor','<p>หัวใจของชิลเลอร์ ดูดไอน้ำยาความดันต่ำจาก Evaporator มาอัดให้ความดันและอุณหภูมิสูงขึ้น แล้วส่งไป Condenser ชิลเลอร์ขนาดใหญ่มักใช้คอมเพรสเซอร์แบบสกรูหรือแบบแรงเหวี่ยง (centrifugal)</p>'],
+evap:['Evaporator (ในชิลเลอร์)','<p>ตัวแลกเปลี่ยนความร้อนระหว่างน้ำยาเย็นกับน้ำชิล น้ำยาดูดความร้อนจากน้ำจนระเหยเป็นไอ น้ำชิลเย็นลงจาก 12 เป็น 7°C</p>'],
+chwp:['ปั๊มน้ำเย็น','<p>ดันน้ำเย็นให้วนผ่านทุกเครื่องในอาคารแล้วกลับเข้า Evaporator ของชิลเลอร์ ปัจจุบันนิยมใช้อินเวอร์เตอร์ปรับรอบตามความต้องการ เพื่อประหยัดไฟ</p>'],
+smain:['ท่อเมนจ่าย','<p>ท่อหลักที่พาน้ำ ~7°C จากชิลเลอร์ไปทุกชั้น เครื่องแต่ละตัวต่อแยกออกจากท่อนี้แบบขนานกัน ท่อเย็นตลอด 24 ชม. ต้องหุ้มฉนวนหนาพอและซีลรอยต่อให้ครบ</p>'],
+rmain:['ท่อเมนกลับ','<p>ท่อหลักที่พาน้ำ ~12°C จากทุกเครื่องกลับชิลเลอร์ ยังเย็นกว่าจุดน้ำค้างเหนือฝ้า จึงต้องหุ้มฉนวนเหมือนท่อจ่าย</p>'],
+load:['เครื่องปล่อยลมเย็นทุกตัว','<p>AHU, FCU และ DOAS ทุกเครื่องในอาคารรับน้ำจากท่อเมนชุดเดียวกัน แต่ละเครื่องมีชุดวาล์วของตัวเองคุมปริมาณน้ำ ดูรายละเอียดได้ที่เมนู <button class="back" data-go="valves">ท่อและชุดวาล์ว</button></p>']}};
+
+/* ---------- valves ---------- */
+V.valves={name:'ท่อและชุดวาล์ว',legend:()=>['chw','chwr','sig'],
+svg:()=>{let s='';
+s+=B(40,20,820,40,'pipe','ท่อเมนจ่าย',null,{i:'smain'});
+s+=B(40,420,820,40,'pipe','ท่อเมนกลับ',null,{i:'rmain'});
+s+=B(80,120,170,60,'amb','บอลวาล์ว',['เปิดค้างไว้'],{i:'ball'});
+s+=B(300,120,170,60,'amb','Strainer',['กรองเศษ'],{i:'strainer'});
+s+=B(560,110,280,220,'ahu','คอยล์เย็น',['ใน AHU / FCU'],{i:'coil'});
+s+=B(300,290,190,70,'hot','มอเตอร์วาล์ว',['เปิด-ปิด / หรี่น้ำ'],{i:'motor'});
+s+=B(80,290,190,70,'amb','Balancing valve',['+ บอลวาล์ว'],{i:'bal'});
+s+=B(600,350,240,56,'gry','เทอร์โมสตัท / DDC',['วัดอุณหภูมิห้อง'],{i:'tstat'});
+s+=L('chw','M165 60 L165 117')+L('chw','M250 150 L297 150')+L('chw','M470 150 L557 150');
+s+=T(510,136,'7°C')+T(527,300,'12°C');
+s+=L('chw','M560 315 L493 315',1)+L('chw','M300 325 L273 325',1)+L('chw','M175 360 L175 417',1);
+s+=L('sig','M600 378 L395 378 L395 363',1);
+return svg(900,480,s,'แผนภูมิท่อและชุดวาล์ว')},
+text:()=>`<h2>ท่อและชุดวาล์ว</h2>
+<ol><li><b>น้ำชิล 7°C</b> จากท่อเมนจ่ายไหลผ่าน<b>บอลวาล์ว</b> (ช่างมักเรียกว่าวาล์วเมน) ซึ่งปกติเปิดค้างไว้ ปิดเฉพาะตอนซ่อม</li>
+<li>ผ่าน <b>Strainer</b> กรองเศษและสิ่งสกปรก ก่อนเข้า<b>คอยล์เย็น</b>ใน AHU หรือ FCU เพื่อดึงความร้อนออกจากลมที่จะส่งเข้าห้อง</li>
+<li>น้ำที่อุ่นขึ้นเป็น <b>12°C</b> ไหลออกจากคอยล์ ผ่าน<b>มอเตอร์วาล์ว</b> ซึ่งเปิด-ปิดหรือหรี่น้ำอัตโนมัติตามคำสั่งจากเทอร์โมสตัท<br>ถ้ามอเตอร์วาล์วค้างอยู่ที่ตำแหน่งเปิด น้ำเย็นจะไหลตลอดเวลาแม้ปิดเครื่องแล้ว ห้องจะเย็นเกิน และท่อกับตัวเครื่องจะเย็นจนน้ำเกาะแล้วหยดลงฝ้า</li>
+<li>ผ่าน <b>Balancing valve</b> ซึ่งตั้งปริมาณน้ำให้เครื่องแต่ละตัวได้ตามที่ออกแบบ ตั้งครั้งเดียวแล้วล็อกไว้ แล้วผ่านบอลวาล์วฝั่งขาออก กลับเข้าท่อเมนกลับ</li></ol>
+<h3>ทำไมมอเตอร์วาล์วนิยมติดหลังคอยล์</h3>
+<p>มอเตอร์วาล์วติดก่อนหรือหลังคอยล์ก็คุมน้ำได้เหมือนกัน แต่นิยมติดหลังคอยล์ เพราะ</p>
+<ul><li>น้ำที่ผ่านวาล์วอุ่นกว่า (12°C) ตัววาล์วจึงเกิดหยดน้ำน้อยกว่า ลดโอกาสที่น้ำจะหยดลงหัวมอเตอร์ ซึ่งหุ้มฉนวนไม่ได้เพราะต้องระบายความร้อน</li><li>ติดเป็นชุดเดียวกับ balancing valve ได้สะดวก หรือจะใช้ <b>PICV</b> ที่รวมสองหน้าที่ไว้ในตัวเดียวก็ได้</li></ul>${HINT}`,
+items:{
+ball:['บอลวาล์ว (วาล์วตัดน้ำ)','<p>วาล์วหมุนด้วยมือ ปกติ<b>เปิดสุดค้างไว้</b> ปิดเฉพาะตอนซ่อม เช่น เปลี่ยนมอเตอร์วาล์ว หรือล้าง strainer จะได้ตัดน้ำเฉพาะเครื่องนั้น มีทั้งฝั่งขาเข้าและฝั่งขาออก</p><p>ไม่ได้ออกแบบให้หรี่น้ำหรือเปิดปิดบ่อย ใช้แบบนั้นนานๆ ซีลจะสึกจนปิดไม่สนิท ท่อใหญ่อาจใช้บัตเตอร์ฟลายวาล์วแทน</p>'],
+strainer:['Strainer (ตัวกรองเศษ)','<p>ตะแกรงกรองเศษ ตะกรัน และสนิมในน้ำ ไม่ให้เข้าไปอุดคอยล์หรือติดค้างในมอเตอร์วาล์ว ต้องถอดล้างตามรอบ PM ถ้าอุดตัน น้ำจะไหลน้อยและเครื่องไม่เย็น</p>'],
+coil:['คอยล์เย็น','<p>จุดเดียวที่ทางน้ำกับทางลมมาเจอกัน น้ำเย็นไหลในท่อด้านใน ลมไหลผ่านครีบด้านนอก ความร้อนถ่ายผ่านผนังท่อ น้ำกับลมไม่ได้ผสมกัน ลมเย็นลง น้ำอุ่นขึ้นจาก 7 เป็น 12°C</p>'],
+motor:['มอเตอร์วาล์ว (motorized control valve)','<p>ก๊อกอัตโนมัติ มี 2 ส่วน คือ<b>ตัววาล์ว</b>ในท่อ และ<b>หัวมอเตอร์ (actuator)</b> ที่หมุนหรือดันก้านวาล์วตามสัญญาณจากเทอร์โมสตัท</p><ul><li>แบบเปิด-ปิด: นิยมใช้กับ FCU</li><li>แบบหรี่ 0–10V: ใช้กับ AHU ที่ต้องคุมแม่นยำ</li></ul><p><b>ไม่ใช่โซลินอยด์วาล์ว</b> โซลินอยด์ใช้ขดลวดแม่เหล็ก ปิดทันทีจนเกิดน้ำกระแทก จึงใช้กับระบบน้ำเย็นน้อย</p><p><b>เช็กเร็วๆ:</b> ปิดเครื่อง 30 นาที ถ้าท่อหลังวาล์วยังเย็นเท่าท่อเมน แปลว่าวาล์วปิดไม่สนิท</p>'],
+bal:['Balancing valve','<p>ตั้งปริมาณน้ำให้แต่ละเครื่องได้ตามที่ออกแบบ เครื่องที่อยู่ใกล้ปั๊มจะได้น้ำมากเกิน ต้องหรี่ไว้ น้ำจึงไปถึงเครื่องที่อยู่ไกลพอ</p><p>ช่างตั้งค่าครั้งเดียวตอนทดสอบระบบ (TAB) แล้วล็อกไว้ <b>ห้ามใช้เป็นวาล์วปิดน้ำ</b> ถ้าต้องถอด ให้จดตำแหน่งไว้ก่อน</p>'],
+tstat:['เทอร์โมสตัท / DDC','<p>วัดอุณหภูมิห้องหรือลมจ่าย เทียบกับค่าที่ตั้งไว้ แล้วส่งสัญญาณไปเปิดหรือหรี่มอเตอร์วาล์ว ห้องร้อนก็เปิดน้ำมาก ห้องเย็นพอก็หรี่หรือปิด และควรต่อ interlock ให้วาล์วปิดเมื่อพัดลมหยุด</p>'],
+smain:V.chw.items.smain,rmain:V.chw.items.rmain}};
+
+/* ---------- AHU ---------- */
+V.ahu={name:'AHU',legend:()=>doas()?['chw','chwr','air','ra','sig']:['chw','chwr','ref','air','ra','sig'],
+svg:()=>{const d=doas();let s='';
+s+=B(760,20,200,64,'gry','เทอร์โมสตัท / DDC',['วัดห้อง'],{i:'tstat'});
+s+=B(330,20,330,64,'pipe','ชุดวาล์ว',['มอเตอร์วาล์ว'],{go:'valves'});
+s+=L('sig','M760 52 L663 52',1);
+s+=C(205,120,780,200,'#5fc792','AHU (1 ตัวต่อห้อง)',970,142,{end:1});
+const Y=175,H=80,cy=Y+H/2;let xs,w,bx,lab,ci;
+if(d){xs=[212,377,542,707,872];w=105;ci=2;bx=[['ahu','ผสมลม',null,{i:'mix'}],['ahu','กรอง F9',null,{i:'filter'}],['ahu','คอยล์แห้ง',['น้ำชิล'],{i:'dry'}],['hot','Heater trim',['1–3 kW'],{go:'reheat'}],['ahu','พัดลม EC',['+ silencer'],{i:'fan'}]];lab=['16°C','16°C','15°C','15–17°C'];
+s+=B(20,70,170,60,'doas','ลมแห้งจาก DOAS',null,{go:'doas'});}
+else{xs=[218,348,478,608,738,868];w=85;ci=2;bx=[['ahu','ผสมลม',null,{i:'mix'}],['ahu','กรอง F9',null,{i:'filter'}],['ahu','คอยล์',['น้ำชิล'],{i:'wetchw'}],['ahu','คอยล์ DX',null,{i:'dx'}],['hot','Reheat',['~10 kW'],{go:'reheat'}],['ahu','พัดลม EC',null,{i:'fan'}]];lab=['20°C','20°C','12°C','6°C','15°C'];
+s+=B(20,70,170,60,'gry','อากาศภายนอก',['ชื้น']);
+const dx=xs[3];s+=B(dx-52,395,190,64,'ahu','คอนเดนซิ่งยูนิต',['ตั้งภายนอกอาคาร'],{i:'cu'});
+s+=L('ref',`M${dx+22} 393 L${dx+22} ${Y+H+3}`)+L('ref',`M${dx+63} ${Y+H} L${dx+63} 392`,1);
+s+=T(dx+14,340,'2–5°C','end')+T(dx+71,340,'10°C','start');}
+bx.forEach(([k,a,b,o],i)=>s+=B(xs[i],Y,w,H,k,a,b,o));
+for(let i=0;i<xs.length-1;i++){const a=xs[i]+w,b=xs[i+1];s+=L('air',`M${a} ${cy} L${b-3} ${cy}`)+AL(a,b,cy,Y,lab[i]);}
+const cx=xs[ci];s+=L('chw',`M${cx+22} 84 L${cx+22} ${Y-3}`)+L('chw',`M${cx+w-22} ${Y} L${cx+w-22} 87`,1);
+const mx=xs[0]+w/2;
+s+=L('air',`M190 100 L${mx} 100 L${mx} ${Y-3}`)+T((190+mx)/2-6,86,d?'11°C':'33°C');
+s+=B(20,280,170,60,'room','ลมกลับจากห้อง',null,{go:'room'})+T((190+mx)/2-6,324,'18°C');
+s+=L('air',`M190 310 L${mx} 310 L${mx} ${Y+H+3}`,1);
+const fx=xs[xs.length-1]+w/2;
+s+=B(780,420,200,60,'room','แผง laminar',null,{go:'room'});
+s+=L('air',`M${fx} ${Y+H} L${fx} 417`)+T(fx-8,380,d?'15–17°C':'15°C','end');
+return svg(1000,500,s,'แผนภูมิ AHU')},
+text:()=>{const d=doas();return `<h2>AHU: ${d?'ระบบ DOAS':'ระบบ Cool–Reheat'}</h2>
+${d?'<ol><li><b>ลมแห้งจาก DOAS (~11°C)</b> ผสมกับ<b>ลมกลับจากห้อง (18°C)</b> ได้ลมผสมประมาณ <b>16°C</b></li><li>ผ่าน<b>กรอง F9</b></li><li><b>คอยล์น้ำชิลแบบคอยล์แห้ง (dry coil):</b> ลดอุณหภูมิลมลงเท่าที่ห้องต้องการ ช่วงผ่าตัดที่ภาระสูงอยู่ราว <b>15°C</b> ไม่มีน้ำควบแน่น เพราะผิวคอยล์อุ่นกว่าจุดน้ำค้างของลมผสม</li><li><b>Heater ตัวเล็ก (1–3 kW):</b> ปรับอุณหภูมิละเอียด ทำงานเฉพาะช่วงที่ห้องต้องการลมอุ่นกว่าลมผสม เช่น ตอนห้องว่าง</li><li><b>พัดลม</b> ส่งลมเข้าแผง Laminar ที่ประมาณ <b>15–17°C</b></li></ol>':'<ol><li><b>อากาศภายนอก (~33°C)</b> ผสมกับ<b>ลมกลับจากห้อง (18°C)</b> ได้ลมผสมประมาณ <b>20°C</b></li><li>ผ่าน<b>กรอง F9</b></li><li><b>คอยล์น้ำชิล (คอยล์เปียก):</b> น้ำชิล 7°C ทำให้ลมเย็นลงเหลือประมาณ <b>12–13°C</b> ไอน้ำควบแน่นเป็นหยดน้ำลงถาดน้ำทิ้ง</li><li><b>คอยล์ DX:</b> ใช้น้ำยาแอร์จากคอนเดนซิ่งยูนิตภายนอก ทำให้ลมเย็นลงอีกถึงประมาณ <b>6°C</b> เพื่อรีดความชื้นออกให้ถึงเกณฑ์</li><li><b>Reheat (~10 kW):</b> อุ่นลมกลับเป็นประมาณ <b>15°C</b></li><li><b>พัดลม</b> ส่งลมเข้าแผง Laminar</li></ol>'}
+<h3>การควบคุม</h3>
+<ul><li>เทอร์โมสตัทหรือ DDC วัดอุณหภูมิและความชื้น คำนวณความต้องการเย็นจากทั้งสองค่า แล้วเลือกค่าที่มากกว่า (high select) ไปสั่งคอยล์</li><li>ถ้าความชื้นเกินค่าตั้ง คอยล์จะทำลมให้เย็นถึงจุดน้ำค้าง แล้ว reheat อุ่นกลับตามอุณหภูมิห้อง</li><li>ปริมาณลมคงที่ 25–35 ACH เพื่อรักษาความสะอาด จึงต้องปรับที่อุณหภูมิลมแทนการลดปริมาณลม</li></ul>${HINT}`},
+items:{
+mix:['ผสมลม','<p>จุดที่ลม 2 สายมาเจอกัน คือลมใหม่ (จาก DOAS หรืออากาศภายนอก) กับลมกลับจากห้อง สัดส่วนลมใหม่ประมาณ 4–6 ACH ส่วนที่เหลือเป็นลมกลับ ลมใหม่ที่จ่ายเข้าห้องยังเป็นตัวรักษาแรงดันบวกของห้องด้วย</p>'],
+filter:FILTER,
+dry:['คอยล์แห้ง (dry coil)','<p>ใช้น้ำชิลคุมอุณหภูมิอย่างเดียว ผิวคอยล์ต้องอุ่นกว่าจุดน้ำค้างของลมผสม (~6°C) จึงไม่มีน้ำควบแน่น ลดความเสี่ยงเชื้อราใกล้ห้องผ่าตัด</p><p>นิยมจ่ายน้ำที่อุ่นขึ้น 12–15°C ให้คอยล์แห้ง เช่น ต่อแบบอนุกรมจากน้ำกลับของคอยล์ DOAS หรือใช้วงจรผสมน้ำ (mixing loop) และยังควรมีถาดน้ำทิ้งไว้เผื่อ</p>'],
+wetchw:['คอยล์น้ำชิล (คอยล์เปียก)','<p>ทำเย็นขั้นแรกด้วยน้ำชิล 7°C รับภาระส่วนใหญ่อย่างประหยัด ลมเย็นลงเหลือประมาณ 12–13°C มีน้ำควบแน่น ต้องมีถาดน้ำทิ้ง</p>'],
+dx:['คอยล์ DX (Direct Expansion)','<p>คอยล์ที่มีน้ำยาแอร์ไหลอยู่ข้างใน ไม่ได้ใช้น้ำชิล น้ำยาระเหยที่ ~2–5°C ลมจึงเย็นถึง ~6°C ซึ่งเป็นจุดน้ำค้างที่ต้องการสำหรับห้อง 18°C ความชื้น 45% น้ำชิล 7°C ทำไม่ถึงจุดนี้ จึงต้องใช้ DX ช่วย</p>'],
+cu:['คอนเดนซิ่งยูนิต','<p>เครื่องที่ตั้งภายนอกอาคาร มีคอมเพรสเซอร์และคอนเดนเซอร์ในตัว ส่งน้ำยาเย็น ~2–5°C มาที่คอยล์ DX แล้วรับไอน้ำยา ~10°C กลับไป จากนั้นระบายความร้อนทิ้งสู่อากาศภายนอก ถ้าใช้ hot gas reheat ความร้อนสำหรับ reheat ก็มาจากเครื่องนี้</p>'],
+fan:['พัดลม EC + silencer','<p>พัดลม EC ปรับรอบได้ละเอียดและประหยัดไฟ ส่งลมผ่านท่อไปแผง laminar silencer ทั้งฝั่งลมจ่ายและลมกลับช่วยให้เสียงในห้องไม่เกิน 55 dB(A) ควรตั้ง AHU ในห้องเครื่องแยก ไม่วางเหนือฝ้าห้องผ่าตัด</p>'],
+tstat:V.valves.items.tstat}};
+
+/* ---------- reheat ---------- */
+V.reheat={name:'Reheat',tabs:[['heater','Heater ไฟฟ้า'],['hotgas','Hot gas'],['heatpump','Heat pump']],
+legend:()=>({heater:['air','pwr','sig'],hotgas:['hot','liq','cold','air'],heatpump:['ref','hw','hwr','air']})[S.tab],
+svg:()=>{let s='';const d=doas();
+if(S.tab==='heater'){
+s+=B(40,40,190,70,'ahu',d?'ลมผสมจากคอยล์':'ลมจากคอยล์ DX');
+s+=B(280,40,180,70,'hot','Heater ไฟฟ้า',[d?'1–3 kW':'~10 kW'],{i:'heat'});
+s+=B(510,40,140,70,'ahu','พัดลม');
+s+=B(700,40,160,70,'room','ไปแผง laminar');
+s+=L('air','M230 75 L277 75')+L('air','M460 75 L507 75')+L('air','M650 75 L697 75')+T(254,61,d?'16°C':'6°C')+T(484,61,'15°C');
+s+=B(40,200,190,70,'gry','ตู้ไฟ + เบรกเกอร์',['3 เฟส'],{i:'power'});
+s+=B(280,200,180,70,'amb','SCR',['หรี่กำลัง 0–100%'],{i:'scr'});
+s+=B(510,200,140,70,'gry','DDC / PID',null,{i:'ddc'});
+s+=B(700,200,160,70,'gry','เซนเซอร์',['ลมจ่าย / ห้อง'],{i:'sensor'});
+s+=L('pwr','M230 235 L277 235')+L('pwr','M370 200 L370 113');
+s+=L('sig','M700 235 L653 235',1)+L('sig','M510 235 L463 235',1)+L('sig','M780 110 L780 197',1);
+s+=C(40,330,650,120,'#d4596b','Interlock: ต้องผ่านครบจึงจ่ายไฟได้',60,352);
+s+=B(60,370,190,60,'hot','Airflow switch',['ต้องมีลมไหล'],{i:'afs'});
+s+=B(270,370,190,60,'hot','High-limit',['ตัดไฟเมื่อร้อนเกิน'],{i:'hl'});
+s+=B(480,370,190,60,'hot','Fan interlock',['+ post-purge'],{i:'fi'});
+s+=L('sig','M370 330 L370 273',1);
+return svg(900,470,s,'แผนภูมิ heater ไฟฟ้า')}
+if(S.tab==='hotgas'){
+s+=C(40,40,340,440,'#5fc792','AHU (ในอาคาร)',58,64);
+s+=C(500,40,360,370,'#aeb8ce','คอนเดนซิ่งยูนิต (ภายนอก)',518,64);
+s+=B(80,90,260,60,'hot','คอยล์ reheat',['แก๊สร้อนคายความร้อนให้ลม'],{i:'rhc'});
+s+=B(80,300,260,60,'pipe','คอยล์ DX',['น้ำยารับความร้อนจากลม'],{i:'dxc'});
+s+=B(80,400,260,44,'gry','วาล์วลดความดัน',null,{i:'eev'});
+s+=L('air','M210 298 L210 154',0,4)+T(224,240,'ลม 6°C','start')+T(224,168,'15°C','start')+T(688,301,'60–80°C','start')+T(210,385,'2–5°C','start');
+s+=B(540,90,280,60,'gry','Condenser',['ระบายส่วนที่เหลือทิ้ง'],{i:'cond'});
+s+=B(540,210,280,60,'amb','วาล์ว 3 ทาง',['แบ่งแก๊สร้อน'],{i:'v3'});
+s+=B(540,330,280,60,'gry','คอมเพรสเซอร์',['อัดเป็นแก๊สร้อน'],{i:'comp'});
+s+=L('cold','M340 330 L430 330 L430 360 L537 360');
+s+=L('hot','M680 330 L680 273')+L('hot','M680 210 L680 153')+L('hot','M540 240 L420 240 L420 120 L343 120');
+s+=L('liq','M80 120 L60 120 L60 422 L77 422')+L('liq','M820 120 L845 120 L845 500 L210 500 L210 447');
+s+=L('cold','M210 400 L210 363');
+return svg(900,520,s,'แผนภูมิ hot gas reheat')}
+s+=C(40,40,290,400,'#5fc792','AHU (ในอาคาร)',58,64);
+s+=B(70,90,230,60,'hot','คอยล์น้ำร้อน',['อุ่นลมกลับ'],{i:'hwc'});
+s+=B(70,260,230,60,'ahu','คอยล์เย็น',[d?'คอยล์แห้ง':'น้ำชิล + DX']);
+s+=B(70,360,230,56,'amb','วาล์วน้ำร้อน',['แบบหรี่ คุมตามห้อง'],{i:'hwv'});
+s+=L('air','M185 258 L185 154',0,4)+T(199,230,'ลม 6°C','start')+T(199,170,'15°C','start');
+s+=C(420,40,440,260,'#5fc792','ฮีทปั๊ม (ภายนอก)',438,64);
+s+=B(440,85,190,60,'hp','คอยล์นอก',['ดูดร้อนจากอากาศ'],{i:'evap2'});
+s+=B(650,85,190,60,'gry','คอมเพรสเซอร์',['อัดน้ำยาให้ร้อน'],{i:'hpcomp'});
+s+=B(650,215,190,60,'hot','ตัวถ่ายร้อน',['น้ำยา → น้ำ'],{i:'hx'});
+s+=B(440,215,190,60,'gry','วาล์วลดความดัน',['น้ำยาเย็นลง'],{i:'hpeev'});
+s+=L('ref','M630 115 L647 115',0,2.6)+L('ref','M745 145 L745 212',0,2.6)+L('ref','M650 245 L633 245',0,2.6)+L('ref','M535 215 L535 148',0,2.6);
+s+=B(440,330,400,56,'amb','ถังพักน้ำร้อน',null,{i:'tank'});
+s+=B(440,420,400,50,'gry','ปั๊มน้ำร้อน',null,{i:'hwp'});
+s+=L('hw','M745 275 L745 327')+L('hw','M640 386 L640 417');
+s+=L('hw','M440 445 L380 445 L380 120 L303 120');
+s+=L('hwr','M70 120 L52 120 L52 388 L67 388',1)+L('hwr','M185 416 L185 500 L875 500 L875 245 L843 245',1);
+s+=T(620,512,'น้ำกลับ 40°C')+T(388,318,'45–55°C','start');
+return svg(900,530,s,'แผนภูมิ heat pump reheat')},
+text:()=>{const d=doas();const ctx=d?'<span class="note">ระบบ DOAS: Reheat เหลือแค่ heater ตัวเล็ก 1–3 kW ไว้ปรับอุณหภูมิละเอียด แบบ heater จึงคุ้มที่สุด</span>':'<span class="note">ระบบ Cool–Reheat: Reheat ต้องอุ่นลมจาก ~6°C เป็น ~15°C ใช้ความร้อนประมาณ 10 kW ต่อห้องตลอด 24 ชม. การเลือกแบบจึงมีผลกับค่าไฟมาก</span>';
+if(S.tab==='heater')return `<h2>Heater ไฟฟ้า</h2>${ctx}
+<ol><li>ลมเย็นจากคอยล์ (~6°C ในระบบ Cool–Reheat หรือ ~16°C ในระบบ DOAS) ไหลผ่าน<b>ขดลวดไฟฟ้า</b> ซึ่งแปลงไฟเป็นความร้อนแล้วอุ่นลม</li><li><b>เซนเซอร์</b>วัดอุณหภูมิลมจ่ายหรือห้อง แล้วส่งค่าให้ <b>DDC</b> เทียบกับค่าที่ตั้งไว้</li><li>DDC ส่งสัญญาณไปที่ <b>SCR</b> ซึ่งหรี่กำลังไฟเข้าขดลวดได้ละเอียด 0–100%</li><li>ลมที่อุ่นแล้ว (~15°C) ผ่านพัดลมเข้าแผง Laminar</li></ol>
+<h3>ระบบความปลอดภัย (Interlock)</h3><p>ต้องผ่านครบทั้ง 3 ข้อจึงจ่ายไฟได้</p>
+<ul><li><b>Airflow switch:</b> ต้องมีลมไหลผ่าน</li><li><b>High-limit:</b> ตัดไฟเมื่อร้อนเกิน</li><li><b>Fan interlock:</b> พัดลมต้องเดินก่อน heater และเดินต่ออีกสักพักหลังปิด heater เพื่อระบายความร้อนค้าง</li></ul>
+<p><b>ติดตั้ง:</b> ใส่ในกล่อง reheat ของ AHU ได้เลย เพิ่มแค่สายไฟ 3 เฟส ตู้ SCR และอุปกรณ์ความปลอดภัย</p>
+${chips([['±0.2–0.5°C','ความแม่นยำ'],['COP 1','ไฟ 1 kW ได้ร้อน 1 kW'],['30–80k','บาท ต่อ AHU'],[d?'ต่ำ':'~380k','บาท/ปี ต่อห้อง']])}
+${pc(['ลงทุนถูกที่สุด ติดตั้งง่าย','แม่นยำที่สุด ตอบสนองทันที','ไม่ผูกกับระบบอื่น ใช้ได้ทั้งน้ำชิลและ DX','ดูแลง่าย ช่างไฟทั่วไปทำได้'],['ค่าไฟสูงที่สุดถ้าใช้เป็นตัวหลัก','เพิ่มภาระหม้อแปลงและไฟสำรอง (~10 kW ต่อห้อง ≈ 15–17 A 3 เฟส)','ต้องมีระบบกันร้อนเกินหลายชั้น'])}${HINT}`;
+if(S.tab==='hotgas')return `<h2>Hot gas reheat</h2>${ctx}
+<ol><li><b>คอยล์ DX:</b> น้ำยาเย็น (~2–5°C) รับความร้อนจากลม ลมเย็นลงถึง ~6°C ส่วนน้ำยากลายเป็นไอที่ยังเย็นอยู่</li><li><b>คอมเพรสเซอร์:</b> อัดไอน้ำยาให้เป็นแก๊สร้อน <b>~60–80°C</b> ความร้อนที่ใช้ reheat มาจากขั้นนี้</li><li><b>วาล์ว 3 ทาง:</b> แบ่งแก๊สร้อนตามที่ห้องต้องการ<ul><li>ส่วนหนึ่งไป<b>คอยล์ reheat</b> ใน AHU อุ่นลมจาก ~6°C เป็น ~15°C แล้วกลายเป็นของเหลว</li><li>ส่วนที่เหลือไป <b>Condenser</b> ระบายทิ้งนอกอาคาร</li></ul></li><li>ของเหลวจากทั้งสองทางรวมกัน ผ่าน<b>วาล์วลดความดัน</b> แล้วกลับเข้าคอยล์ DX</li></ol>
+<p><b>ติดตั้ง:</b> ใช้คอนเดนซิ่งยูนิตตัวเดียวกับคอยล์ DX แต่ต้องเดินท่อน้ำยาเพิ่ม 2 เส้น คือท่อแก๊สร้อนไปคอยล์ reheat และท่อของเหลวกลับ</p>
+${chips([['±0.5–2°C','ความแม่นยำ'],['แทบฟรี','ค่าไฟ reheat'],['150–400k','บาท ต่อ AHU']])}
+${pc(['ค่าไฟ reheat ต่ำที่สุด ใช้ความร้อนทิ้ง','ลดภาระ condenser','ไม่ต้องมีระบบน้ำร้อน'],['ลงทุนสูง ท่อน้ำยาซับซ้อน','ใช้ได้เฉพาะระบบที่มี DX','ความร้อนผูกกับคอมเพรสเซอร์ คอมเพรสเซอร์ตัด ความร้อนก็หาย','ปรับ reheat แล้วกระทบความเย็นของคอยล์ DX ด้วย','ต้องใช้ช่างระบบน้ำยาที่ชำนาญ'])}${HINT}`;
+return `<h2>Heat pump reheat</h2>${ctx}
+<p>ระบบนี้มี 2 วงจรแยกกัน และส่งความร้อนต่อกันที่<b>ตัวถ่ายร้อน</b></p>
+<h3>วงจรน้ำยา (อยู่ในตัวฮีทปั๊มเท่านั้น)</h3>
+<ol><li><b>คอยล์นอก:</b> น้ำยาเย็นจัดดูดความร้อนจากอากาศภายนอก (~33°C) แล้วระเหยเป็นไอ</li><li><b>คอมเพรสเซอร์:</b> อัดไอน้ำยาให้ร้อนจัด</li><li><b>ตัวถ่ายร้อน:</b> น้ำยาถ่ายความร้อนให้น้ำ แล้วควบแน่นเป็นของเหลว</li><li><b>วาล์วลดความดัน:</b> น้ำยาเย็นลง แล้วกลับไปที่คอยล์นอก</li></ol>
+<p>หลักการเดียวกับแอร์บ้าน แต่ใช้งานฝั่งร้อนแทนฝั่งเย็น</p>
+<h3>วงจรน้ำร้อน</h3>
+<ol><li>น้ำร้อน <b>45–55°C</b> เก็บในถังพัก</li><li>ปั๊มส่งน้ำร้อนไปที่<b>คอยล์น้ำร้อน</b>ใน AHU อุ่นลมจาก ~6°C เป็น ~15°C</li><li><b>วาล์วน้ำร้อนแบบหรี่</b>ปรับปริมาณน้ำตามคำสั่งจาก DDC</li><li>น้ำกลับ (~40°C) ไหลกลับไปรับความร้อนที่ตัวถ่ายร้อนอีกรอบ</li></ol>
+<p><b>ติดตั้ง:</b> ต้องมีเครื่องฮีทปั๊ม ถังพัก ปั๊ม และท่อน้ำร้อนไป-กลับ ในอาคารมีแค่ท่อน้ำ ไม่มีท่อน้ำยา และชุดเดียวจ่ายน้ำร้อนให้ AHU ได้หลายตัว</p>
+${chips([['±0.3–0.5°C','ความแม่นยำ'],['COP 3–4.5','ไฟ 1 kW ได้ร้อน 3–4.5'],['200–600k','บาท ต่อระบบ'],[d?'ต่ำ':'~90–130k','บาท/ปี ต่อห้อง']])}
+${pc(['ประหยัดกว่า heater 3–4 เท่า','แม่นยำ เพราะวงจรแยกจากคอยล์เย็นและมีถังน้ำร้อนเป็นตัวสำรอง','ในอาคารมีแต่ท่อน้ำ ไม่มีน้ำยา','ชุดเดียวจ่ายได้หลาย AHU'],['ลงทุนสูง ต้องมีพื้นที่ ถัง ปั๊ม ท่อ','เป็นระบบส่วนกลาง ต้องมีเครื่องสำรอง','ห้องน้อย คืนทุนช้า','ต้องดูแลคุณภาพน้ำ'])}${HINT}`},
+items:{
+heat:['Heater ไฟฟ้า','<p>ขดลวดทำความร้อนแบบครีบ (finned element) ติดในโครงท่อลม ต้องมีลมผ่านเสมอขณะทำงาน ไม่อย่างนั้นขดลวดจะร้อนจัดจนเสียหรือเกิดอัคคีภัย</p>'],
+power:['ตู้ไฟ + เบรกเกอร์','<p>เดินสายไฟ 3 เฟสพร้อมเบรกเกอร์แยกสำหรับ heater ห้องผ่าตัดต้องต่อเข้าระบบไฟสำรอง จึงต้องเช็กว่าหม้อแปลงและเครื่องกำเนิดไฟรับภาระเพิ่มได้</p>'],
+scr:['SCR: Silicon Controlled Rectifier (ไทริสเตอร์)','<p>อุปกรณ์อิเล็กทรอนิกส์กำลังที่ทำหน้าที่เป็น<b>สวิตช์ไฟความเร็วสูง</b> เปิด-ปิดไฟเข้าขดลวด heater หลายครั้งต่อวินาที เพื่อหรี่กำลังได้ละเอียด 0–100% ตามสัญญาณ 0–10V จาก DDC ไม่มีหน้าสัมผัสที่สึกหรอแบบคอนแทคเตอร์ จึงคุมอุณหภูมิได้แม่นยำและอายุใช้งานยาว</p>'],
+ddc:['DDC และ PID','<p><b>DDC: Direct Digital Control (ระบบควบคุมแบบดิจิทัลโดยตรง)</b><br>กล่องคอมพิวเตอร์ควบคุมของงานระบบ รับค่าจากเซนเซอร์ (อุณหภูมิ ความชื้น แรงดัน) แล้วสั่งอุปกรณ์ เช่น มอเตอร์วาล์ว heater และพัดลม ตามโปรแกรมที่ตั้งไว้ มักต่อเข้าระบบ BMS (Building Management System) ให้ดูและสั่งงานจากห้องควบคุมได้</p><p><b>PID: Proportional–Integral–Derivative (การควบคุมแบบสัดส่วน–ปริพันธ์–อนุพันธ์)</b><br>วิธีคำนวณที่ DDC ใช้ตัดสินว่าต้องสั่งอุปกรณ์แรงแค่ไหน จากส่วนต่างระหว่างค่าที่วัดได้กับค่าที่ตั้งไว้</p><ul><li><b>P (สัดส่วน):</b> ห่างจากค่าตั้งมาก ก็สั่งแรงมาก</li><li><b>I (ปริพันธ์):</b> ถ้าค้างห่างจากค่าตั้งอยู่นาน ก็ค่อยๆ เพิ่มแรงจนเข้าเป้าพอดี</li><li><b>D (อนุพันธ์):</b> ถ้าค่าเปลี่ยนเร็ว ก็ผ่อนแรงไว้ก่อน กันไม่ให้เลยเป้า</li></ul><p>เปรียบเหมือนคนขับรถที่ค่อยๆ ผ่อนคันเร่งเมื่อใกล้ถึงความเร็วที่ต้องการ อุณหภูมิจึงนิ่ง ไม่แกว่ง</p><p><b>ทำงานต่อกัน:</b> เซนเซอร์วัดอุณหภูมิ → DDC ใช้สูตร PID คำนวณว่าต้องเติมความร้อนเท่าไร → ส่งสัญญาณไปที่ SCR → SCR หรี่ไฟเข้าขดลวด heater</p>'],
+sensor:['เซนเซอร์อุณหภูมิ','<p>วัดอุณหภูมิลมจ่ายหลัง heater หรือในห้อง เป็นข้อมูลให้ DDC ปรับกำลัง heater</p>'],
+afs:['Airflow switch','<p>ยืนยันว่ามีลมไหลผ่าน heater จริง ถ้าไม่มีลม (พัดลมเสีย ไส้กรองตัน) จะตัดไฟ heater ทันที</p>'],
+hl:['High-limit thermostat','<p>ตัดไฟเมื่ออุณหภูมิที่ heater สูงเกินค่าปลอดภัย เป็นชั้นป้องกันสุดท้าย บางรุ่นต้องกดรีเซ็ตด้วยมือหลังตัด</p>'],
+fi:['Fan interlock + post-purge','<p>พัดลมต้องเดินก่อน heater จึงทำงานได้ และเมื่อปิด heater พัดลมต้องเดินต่ออีกสักพักเพื่อระบายความร้อนค้างในขดลวด</p>'],
+rhc:['คอยล์ reheat (hot gas)','<p>คอยล์ที่มีแก๊สร้อนจากคอมเพรสเซอร์ไหลผ่าน อยู่หลังคอยล์ DX ในทางลม แก๊สคายความร้อนให้ลมแล้วควบแน่นเป็นของเหลว ทำหน้าที่เหมือน condenser ตัวที่สองที่อยู่ในอาคาร</p>'],
+dxc:V.ahu.items.dx,
+eev:['วาล์วลดความดัน','<p>ลดความดันน้ำยาเหลว ทำให้น้ำยาเย็นจัดทันทีก่อนเข้าคอยล์ DX</p>'],
+cond:['Condenser','<p>ระบายความร้อนส่วนที่ไม่ได้ใช้ reheat ทิ้งสู่อากาศภายนอก ถ้าห้องต้องการ reheat มาก ความร้อนจะถูกส่งไป condenser น้อยลง</p>'],
+v3:['วาล์ว 3 ทาง','<p>แบ่งแก๊สร้อนระหว่างคอยล์ reheat กับ condenser ตามสัญญาณจากตัวควบคุม แบบหรี่ได้ต่อเนื่องคุมได้แม่นกว่าโซลินอยด์แบบเปิด-ปิด</p>'],
+comp:['คอมเพรสเซอร์','<p>อัดไอน้ำยาเย็นให้เป็นแก๊สร้อนความดันสูง ความร้อนที่ใช้ reheat มาจากความร้อนที่คอยล์ DX ดึงจากลม รวมกับพลังงานของคอมเพรสเซอร์ ควรเป็นแบบอินเวอร์เตอร์ ในโหมดลดความชื้น คอมเพรสเซอร์ต้องทำงานต่อแม้ห้องเย็นพอแล้ว</p>'],
+hwc:['คอยล์น้ำร้อน','<p>คอยล์ที่มีน้ำร้อน 45–55°C ไหลผ่าน อยู่หลังคอยล์เย็นในทางลม อุ่นลมขึ้นตามที่วาล์วน้ำร้อนปล่อยน้ำเข้า</p>'],
+hwv:['วาล์วน้ำร้อนแบบหรี่','<p>หลักการเดียวกับมอเตอร์วาล์วของน้ำชิล DDC สั่งหรี่หรือเปิดน้ำร้อนตามอุณหภูมิห้อง ปรับได้ต่อเนื่องและนุ่มนวล</p>'],
+evap2:['คอยล์นอก','<p>คอยล์ที่ตั้งภายนอก น้ำยาเย็นจัดดูดความร้อนจากอากาศแล้วระเหย อากาศที่ผ่านคอยล์จะเย็นลง (ผลพลอยได้คือลมเย็น)</p>'],
+hpcomp:['คอมเพรสเซอร์ของฮีทปั๊ม','<p>อัดไอน้ำยาให้ร้อนพอจะทำน้ำ 50–60°C ได้ ฮีทปั๊มจึงใช้คอมเพรสเซอร์และชนิดน้ำยาที่ทำงานที่อุณหภูมิสูงได้</p>'],
+hx:['ตัวถ่ายร้อน','<p>ตัวแลกเปลี่ยนความร้อนแบบแผ่นหรือแบบท่อ น้ำยาร้อนกับน้ำไหลคนละช่อง ความร้อนถ่ายผ่านผนังโลหะ น้ำยาควบแน่น น้ำร้อนขึ้น</p>'],
+hpeev:['วาล์วลดความดัน','<p>ลดความดันน้ำยาเหลว ให้เย็นจัดก่อนเข้าคอยล์นอกเพื่อดูดความร้อนรอบใหม่</p>'],
+tank:['ถังพักน้ำร้อน','<p>เก็บน้ำร้อนไว้ให้พร้อมใช้ ช่วยให้อุณหภูมิคงที่ และกันฮีทปั๊มตัด-ต่อบ่อยเมื่อความต้องการเปลี่ยน</p>'],
+hwp:['ปั๊มน้ำร้อน','<p>ดันน้ำร้อนจากถังไปคอยล์น้ำร้อนของ AHU ทุกตัว แล้ววนกลับมาที่ตัวถ่ายร้อน</p>']}};
+
+/* ---------- DOAS ---------- */
+V.doas={name:'DOAS',legend:()=>['air','chw','chwr','ref','hp'],
+svg:()=>{let s='';
+s+=B(30,20,180,60,'gry','อากาศภายนอก',['ชื้น']);
+s+=C(20,110,960,260,'#c9e68a','DOAS · ใช้ร่วม 2 ห้อง',965,134,{end:1});
+const xs=[40,195,350,505,660,815],w=105,Y=195,H=80,cy=Y+H/2;
+const bx=[['doas','กรอง',['G4 + F7'],'filt'],['doas','Heat pipe',['pre-cool'],'hp1'],['chw','คอยล์',['น้ำชิล'],'chwc'],['doas','คอยล์ DX',['น้ำยาแอร์'],'dxc'],['doas','Heat pipe',['reheat'],'hp2'],['doas','พัดลม',['ส่ง 2 ห้อง'],'dfan']];
+bx.forEach(([k,a,b,i],n)=>s+=B(xs[n],Y,w,H,k,a,b,{i}));
+s+=L('air',`M120 80 L120 ${Y-3}`)+T(128,140,'33°C','start');
+const lab=['33°C','27°C','14°C','5°C','11°C'];
+for(let i=0;i<5;i++){const a=xs[i]+w,b=xs[i+1];s+=L('air',`M${a} ${cy} L${b-3} ${cy}`)+AL(a,b,cy,Y,lab[i]);}
+s+=L('hpp',`M247 ${Y-2} L247 160 L712 160 L712 ${Y-4}`,0,2.4)+T(480,160,'ไอสารไหลไปฝั่ง reheat →');
+s+=L('hpp',`M712 ${Y+H} L712 300 L247 300 L247 ${Y+H+4}`,1,2.2)+T(240,322,'← ของเหลวไหลกลับ','start');
+s+=B(320,392,160,44,'pipe','ชุดวาล์ว',null,{go:'valves'});
+s+=B(300,476,200,56,'chw','ระบบน้ำชิล',null,{go:'chw'});
+s+=L('chw','M380 389 L380 278')+L('chw','M380 473 L380 439')+L('chw','M440 275 L440 389',1)+L('chw','M440 436 L440 473',1)+T(372,456,'7°C','end')+T(448,456,'12°C','start');
+s+=B(520,410,190,60,'doas','คอนเดนซิ่งยูนิต',['ตั้งภายนอก'],{i:'dcu'});
+s+=L('ref','M545 408 L545 278')+L('ref','M590 275 L590 407',1);
+s+=B(760,410,200,52,'ahu','AHU ห้อง 1',null,{go:'ahu'})+B(760,480,200,52,'ahu','AHU ห้อง 2',null,{go:'ahu'});
+s+=L('air',`M867 ${Y+H} L867 407`)+L('air',`M920 ${cy} L990 ${cy} L990 506 L963 506`);
+return svg(1000,545,s,'แผนภูมิ DOAS')},
+text:()=>`<h2>DOAS (Dedicated Outdoor Air System)</h2>
+${doas()?'':'<span class="note">ใช้เฉพาะระบบ DOAS · ตอนนี้เลือก Cool–Reheat อยู่</span>'}
+<p>DOAS รับเฉพาะอากาศภายนอก (~1,100 m³/h สำหรับ 2 ห้อง) มารีดความชื้นจนแห้งจัด แล้วส่งให้ AHU ของแต่ละห้อง ลมกลับจากห้องไม่ต้องเข้า DOAS เพราะแห้งอยู่แล้ว</p>
+<h3>ลำดับการทำงาน</h3>
+<ol><li><b>อากาศภายนอก (~33°C ชื้น)</b> ผ่าน<b>กรอง G4 + F7</b> ดักฝุ่นก่อนเข้าคอยล์</li>
+<li><b>Heat pipe ฝั่ง pre-cool:</b> สารทำความเย็นในท่อดูดความร้อนจากอากาศจนระเหยเป็นไอ อากาศเย็นลงเหลือประมาณ <b>27°C</b> ไอในฝั่งนี้มีแรงดันสูง จึงไหลไปตามท่อสู่ฝั่ง reheat เอง โดยไม่ต้องใช้ปั๊มหรือคอมเพรสเซอร์</li>
+<li><b>คอยล์น้ำชิล (คอยล์เปียก):</b> น้ำชิล 7°C ทำให้ลมเย็นลงเหลือประมาณ <b>14°C</b> และเริ่มรีดความชื้น</li>
+<li><b>คอยล์ DX:</b> ใช้น้ำยาแอร์จากคอนเดนซิ่งยูนิตภายนอก ทำให้ลมเย็นลงถึงประมาณ <b>5°C</b> จุดน้ำค้างเหลือ 4–5°C ซึ่งต่ำกว่าจุดน้ำค้างของห้อง (~6°C) ลมจึงยังดูดซับความชื้นจากคนในห้องได้</li>
+<li><b>Heat pipe ฝั่ง reheat:</b> ไอสารที่ไหลมาจากฝั่ง pre-cool เจอลมเย็นจัด จึงควบแน่นเป็นของเหลวและคายความร้อนให้ลม ลมอุ่นขึ้นเป็นประมาณ <b>11°C</b> ช่วยกันไม่ให้ท่อลมที่วิ่งไป AHU มีน้ำเกาะ<br>ของเหลวที่ควบแน่นไหลกลับไปฝั่ง pre-cool ด้วย<b>แรงโน้มถ่วง</b> เพราะติดตั้งให้ฝั่ง reheat สูงกว่าเล็กน้อย แล้วระเหยรอบใหม่ วนแบบนี้ตลอดเวลาโดยไม่ใช้ไฟ</li>
+<li><b>พัดลม</b> ส่งลมแห้งไปผสมลมใน AHU ทั้ง 2 ห้อง</li></ol>
+<p><b>สรุปผลของ heat pipe:</b> ความร้อนที่ดึงออกจากอากาศภายนอกในขั้นที่ 2 (ลดลง ~6°C) คือความร้อนเดียวกับที่ใช้อุ่นลมในขั้นที่ 5 (เพิ่มขึ้น ~6°C) จึงได้ทั้งการลดภาระคอยล์และการ reheat ฟรี เหมือนหม้อต้มน้ำปิดฝา ที่ไอลอยขึ้นไปควบแน่นที่ฝาแล้วหยดกลับลงมา</p>
+<h3>ข้อดีข้อเสียของ DOAS</h3>
+${pc(['คุมความชื้น 40–50% ได้เสถียร คุมจุดเดียว','reheat ใน AHU เหลือ 1–3 kW ประหยัดไฟมาก','AHU ใช้คอยล์แห้งกับน้ำชิลเดิมได้ เสียงเบาลง','ฮีทไปป์ให้ทั้ง pre-cool และ reheat ฟรี'],['ลงทุนเพิ่มอีก 1 เครื่อง พร้อมพื้นที่และท่อลม','DOAS เสีย ความชื้นทั้ง 2 ห้องขึ้นพร้อมกัน','ลมออกจากคอยล์เย็นจัด ท่อลมต้องหุ้มฉนวนดี','ออกแบบและปรับตั้งซับซ้อนกว่า'])}${HINT}`,
+items:{
+filt:FILTER,
+hp1:['Heat pipe ฝั่ง pre-cool','<p>อยู่ในอากาศภายนอกที่เพิ่งเข้ามา สารในท่อดูดความร้อนแล้วระเหยเป็นไอ อากาศเย็นลงก่อนถึงคอยล์ ลดภาระคอยล์น้ำชิลและ DX ไอที่เกิดขึ้นมีแรงดันสูงกว่าฝั่ง reheat จึงไหลไปเอง</p><p>ฝั่งนี้ต้องอยู่ต่ำกว่าฝั่ง reheat เล็กน้อย ของเหลวที่ไหลกลับมาจะได้ลงมารวมที่ฝั่งนี้</p>'],
+chwc:['คอยล์น้ำชิล (ใน DOAS)','<p>รับน้ำชิล 7°C จากระบบน้ำชิลเดียวกับทั้งอาคาร ทำเย็นขั้นหลักและรีดความชื้นได้บางส่วน เป็นคอยล์เปียก ต้องมีถาดน้ำทิ้ง ท่อแยกเข้าคอยล์นี้มีชุดวาล์วแบบเดียวกับ AHU</p>'],
+dxc:['คอยล์ DX (ใน DOAS)','<p>ใช้น้ำยาแอร์จากคอนเดนซิ่งยูนิต ไม่ได้ใช้น้ำชิล ทำลมให้เย็นถึง ~5°C เพื่อให้จุดน้ำค้างต่ำกว่าของห้อง (~6°C) จึงดูดซับความชื้นจากคนในห้องได้</p>'],
+hp2:['Heat pipe ฝั่ง reheat','<p>อยู่ในลมเย็นจัดที่ออกจากคอยล์ DX ไอสารควบแน่นแล้วคายความร้อน อุ่นลมเป็น ~11°C ลดความเสี่ยงที่ท่อลมไปยัง AHU จะมีน้ำเกาะ โดยไม่ใช้ไฟ</p><p>ถ้าติดตั้งเอียงผิดทาง ของเหลวจะค้างอยู่ฝั่งนี้ และ heat pipe จะทำงานได้น้อยหรือไม่ทำงานเลย บางรุ่นมีโซลินอยด์วาล์วไว้ปิดการทำงานเมื่อไม่ต้องการ reheat</p><p><b>สารในท่อ:</b> มักเป็นสารทำความเย็นกลุ่มเดียวกับน้ำยาแอร์ เช่น R-134a เติมมาจากโรงงาน ไม่ต้องเติมหรือดูแลน้ำยา</p>'],
+dfan:['พัดลม DOAS','<p>ส่งลมแห้งไปยังกล่องผสมลมของ AHU ทั้ง 2 ห้อง ปริมาณลมใหม่นี้ยังใช้รักษาแรงดันบวกของห้องด้วย</p>'],
+dcu:['คอนเดนซิ่งยูนิต (ของ DOAS)','<p>มีคอมเพรสเซอร์และคอนเดนเซอร์ ตั้งภายนอก ส่งน้ำยาเย็นมาที่คอยล์ DX แล้วรับน้ำยากลับไป ท่อน้ำยาไป-กลับเป็นคนละวงจรกับท่อฮีทไปป์</p>']}};
+
+/* ---------- room ---------- */
+V.room={name:'ห้องผ่าตัด',legend:()=>['air','ra'],
+svg:()=>{let s='';
+s+=C(60,40,780,470,'#c98a52','ห้องผ่าตัด · 18°C · RH 40–50%',80,64);
+s+=B(300,60,300,50,'room','แผง laminar + HEPA H14',null,{i:'panel'});
+s+=`<rect class="cont" x="280" y="118" width="340" height="270" rx="10" stroke="#5fc792"/>`;
+[320,380,520,580].forEach(x=>s+=L('air',`M${x} 112 L${x} 296`));
+s+=B(410,190,80,34,'gry','โคมผ่าตัด',null,{i:'light'});
+s+=L('air','M450 226 L450 296');
+s+=B(320,300,260,36,'room','เตียงผ่าตัด',null,{i:'table'});
+s+=B(375,346,150,32,'ahu','โซนสะอาด ISO 5',null,{i:'iso'});
+s+=L('air','M318 330 Q240 380 196 446')+L('air','M582 330 Q660 380 704 446');
+s+=B(80,450,120,36,'room','ช่องลมกลับ',null,{i:'grille'})+B(700,450,120,36,'room','ช่องลมกลับ',null,{i:'grille'});
+s+=L('air','M140 486 L140 540',1)+L('air','M760 486 L760 540',1);
+s+=T(140,556,'กลับ AHU')+T(760,556,'กลับ AHU');
+s+=B(80,90,150,56,'gry','แรงดันบวก',['+10–15 Pa'],{i:'press'});
+s+=B(80,200,150,56,'gry','เซนเซอร์',['°C / RH'],{i:'rsensor'});
+s+=B(690,200,130,56,'gry','ประตู',['ปิดระหว่างผ่าตัด'],{i:'door'});
+return svg(900,575,s,'แผนภูมิห้องผ่าตัดและ laminar')},
+text:()=>`<h2>ห้องผ่าตัดและ laminar airflow</h2>
+<p>ลมสะอาดที่ผ่านแผง <b>HEPA H14</b> บนเพดาน ไหลลงมาตรงๆ ในทิศทางเดียวด้วยความเร็วต่ำ ไม่หมุนวนเหมือนหัวจ่ายลมทั่วไป ทำหน้าที่เหมือน<b>ม่านอากาศสะอาด</b>คลุมโซนเตียงผ่าตัด ไล่เชื้อโรคและฝุ่นออกจากแผลผ่าตัด ลงไปที่ช่องลมกลับระดับพื้น โซนใต้แผงจึงสะอาดระดับประมาณ <b>ISO 5</b></p>
+${chips([['18°C','อุณหภูมิ'],['40–50%','ความชื้น'],['25–35','ACH'],['0.13–0.18','m/s หน้าแผง'],['≤ 55','dB(A)'],['+10–15','Pa']])}
+<h3>ค่าที่ใช้ออกแบบ</h3>
+<ul><li>แผงคลุมเตียงและเลยขอบอย่างน้อย ~30 ซม. ทุกด้าน ห้องทั่วไปใช้ราว 2.4 × 3.0 ม.</li><li>ช่องลมกลับอย่างน้อย 2 จุด ใกล้พื้น อยู่มุมตรงข้ามกัน</li><li>ลมจ่ายต่างจากห้องแค่ 1–3°C ถ้าเย็นเกิน ลมตกเร็วและปั่นป่วน ถ้าอุ่นเกิน ลมลงไม่ถึงเตียง</li><li>ASHRAE 170 กำหนดแรงดันบวกขั้นต่ำ +2.5 Pa งานออกแบบนิยม +8 ถึง +15 Pa</li></ul>
+<h3>ข้อควรระวัง</h3>
+<ul><li>โคมผ่าตัดและแขนเพนแดนท์ขวางทางลม เลือกรุ่นที่ลมผ่านได้ดี</li><li>ห้ามวางของขวางช่องลมกลับ</li><li>ปิดประตูระหว่างผ่าตัด</li><li>ทดสอบรอยรั่ว HEPA หลังติดตั้งและทุกปี วัดความเร็วลมหน้าแผงตามรอบ PM</li></ul>
+<p>ห้องผ่าตัดผู้ป่วยติดเชื้อทางอากาศ (เช่น วัณโรค) ใช้ความดันลบ และควรมี anteroom</p>${HINT}`,
+items:{
+panel:['แผง laminar + HEPA H14','<p>แผงจ่ายลมบนเพดานเหนือเตียง ลมผ่าน HEPA H14 ที่กรองอนุภาคได้ 99.995% แล้วไหลลงตรงด้วยความเร็ว ~0.13–0.18 m/s ลมช้าจึงเสียงเบา ช่วยให้ได้ตามเป้า ≤ 55 dB(A)</p>'],
+light:['โคมผ่าตัด','<p>ขวางทางลมที่ไหลลงมา ทำให้ใต้โคมมีจุดลมวน ควรเลือกรุ่นที่ออกแบบให้ลมผ่านได้ และไม่บังโซนแผลตลอดเวลา</p>'],
+table:['เตียงผ่าตัด','<p>อยู่กลางโซนสะอาดใต้แผง laminar ลมไหลลงคลุมแผล แล้วแยกออกสองข้างไปยังช่องลมกลับ</p>'],
+iso:['โซนสะอาด ISO 5','<p>มาตรฐานความสะอาดของอากาศตาม ISO 14644-1 ระดับ 5 กำหนดให้มีอนุภาคขนาด 0.5 ไมครอนขึ้นไปไม่เกิน 3,520 อนุภาคต่ออากาศ 1 ลูกบาศก์เมตร ตัวเลขระดับยิ่งน้อยยิ่งสะอาด อากาศในห้องทั่วไปอยู่ราว ISO 8–9</p>'],
+grille:['ช่องลมกลับระดับพื้น','<p>ขอบล่างสูงจากพื้นไม่เกิน ~20 ซม. อย่างน้อย 2 จุดในมุมตรงข้าม ดึงลมที่พาเชื้อและฝุ่นออกจากห้อง ห้ามมีตู้หรือรถเข็นขวาง</p>'],
+press:['แรงดันบวก','<p>จ่ายลมเข้ามากกว่าดูดออก อากาศจึงไหลออกจากห้องผ่าตัดไปทางเดิน เชื้อโรคจากภายนอกเข้าไม่ได้ ควรมีจอแสดงแรงดันหน้าห้องและสัญญาณเตือน</p>'],
+rsensor:['เซนเซอร์อุณหภูมิและความชื้น','<p>ส่งค่าให้ระบบควบคุม AHU ตั้งเตือนเมื่อความชื้นเกิน 55% (เข้มกว่าเพดาน 60% ของ ASHRAE) เพื่อให้แก้ทันก่อนหลุดเกณฑ์</p>'],
+door:['ประตู','<p>การเปิดประตูบ่อยทำให้แรงดันห้องตกและทิศทางลมเสีย ควรปิดระหว่างผ่าตัด และมีตัวปิดประตูอัตโนมัติ</p>']}};
+
+/* ---------- compare ---------- */
+const CMP={
+sys:{n:'DOAS กับ Cool–Reheat',sub:'ห้องผ่าตัด 2 ห้อง · 18°C · RH 40–50% · 25–35 ACH',
+body:()=>tbl(['หัวข้อ','DOAS','Cool–Reheat'],[['หลักการ','รีดความชื้นเฉพาะอากาศภายนอก แยกจากการคุมอุณหภูมิ','ทำลมทั้งหมดให้เย็นจัด แล้วอุ่นกลับ'],['ลมที่ต้องทำเย็นถึง ~5–6°C','~1,100 m³/h (เฉพาะอากาศนอก รวม 2 ห้อง)','~3,240 m³/h ต่อห้อง (ลมทั้งหมด)'],['คอยล์ใน AHU','คอยล์แห้ง (น้ำชิล)','คอยล์เปียก (น้ำชิล + DX)'],['Reheat ต่อห้อง','Heater 1–3 kW','~10 kW'],['คุมความชื้น 40–50%','เสถียร','ยากกว่า'],['ค่าลงทุน','สูงกว่า','ต่ำกว่า'],['ค่าไฟระยะยาว','ต่ำ','สูง'],['ความซับซ้อน','มากกว่า','น้อยกว่า'],['ชื่อเรียกอื่น','DOAS + Recirculation AHU, MAU + Dry Coil','Overcool and Reheat, CV Reheat']]),
+text:'<h2>DOAS กับ Cool–Reheat</h2><p>สองระบบนี้ต่างกันที่<b>จุดที่รีดความชื้น</b> DOAS รีดเฉพาะอากาศภายนอกที่เป็นแหล่งความชื้นหลัก ส่วน Cool–Reheat รีดลมทั้งหมดแล้วต้องอุ่นกลับทั้งหมด</p><h3>เหมาะกับกรณีไหน</h3><ul><li><b>DOAS:</b> ต้องการความชื้นต่ำและเสถียร (40–50%) ใช้งานทุกวัน หลายห้อง เน้นค่าไฟระยะยาว</li><li><b>Cool–Reheat:</b> ต้องการความชื้นแค่ไม่เกิน 60% ห้องน้อย ใช้งานไม่บ่อย หรืองบลงทุนจำกัด</li></ul><p><b>สำหรับโครงการนี้:</b> เงื่อนไข 18°C, RH 40–50%, 25–35 ACH, เสียง ≤ 55 dB(A) และใช้งานทุกวัน <b>DOAS เหมาะกว่า</b> ส่วนต่างค่าลงทุนมักคืนทุนได้จากค่าไฟที่ลดลง</p>'},
+rh:{n:'Reheat 3 แบบ',sub:'Heater ไฟฟ้า · Hot gas · Heat pump',
+body:()=>tbl(['หัวข้อ','Heater','Hot gas','Heat pump'],[['ราคาติดตั้ง',st(5),st(2),st(2)+' ('+st(3)+' ถ้าหลายห้อง)'],['ค่าไฟ / ค่าใช้งาน',st(1),st(5),st(4)],['ความแม่นยำ',st(5),st(3),st(4)],['ค่าดูแลซ่อมบำรุง',st(5),st(2),st(3)],['เข้ากับระบบน้ำชิล',st(5),st(1)+' (ต้องมี DX)',st(5)],['สิ่งที่ต้องติดเพิ่ม','สายไฟ 3 เฟส + SCR','ท่อน้ำยา 2 เส้น + วาล์ว 3 ทาง','ฮีทปั๊ม ถัง ปั๊ม ท่อน้ำร้อน'],['เหมาะกับ','ตัวปรับละเอียด / สำรอง','ระบบ DX ใช้งาน 24 ชม.','ระบบน้ำชิล หลายห้อง']])+'<p class="sub">★ มาก = ดีกว่า (ราคาติดตั้ง ★★★★★ = ถูกที่สุด)</p>',
+text:'<h2>Reheat 3 แบบ</h2><ul><li><b>Heater:</b> ลงทุนต่ำและแม่นที่สุด แต่ค่าไฟสูงที่สุดถ้าใช้เป็นตัวหลัก เหมาะกับงาน trim ในระบบ DOAS</li><li><b>Hot gas:</b> ค่าไฟ reheat ต่ำที่สุดเพราะใช้ความร้อนทิ้ง แต่ต้องมีระบบ DX และคุมได้แม่นน้อยกว่า</li><li><b>Heat pump:</b> ประหยัดกว่า heater 3–4 เท่า และแม่นยำ เพราะแยกวงจรจากคอยล์เย็น คุ้มเมื่อมีหลายห้อง</li></ul><p>ตัวเลขราคาเป็นค่าประมาณ ควรขอใบเสนอราคาจริงมาเปรียบเทียบ</p>'},
+ctl:{n:'การควบคุม: Hot gas กับ Heat pump',sub:'ทำไม heat pump คุมอุณหภูมิได้นิ่งกว่า',
+body:()=>tbl(['หัวข้อ','Hot gas','Heat pump'],[['วงจรควบคุม','ผูกกับคอมเพรสเซอร์ของคอยล์ DX ปรับ reheat แล้วกระทบความเย็นด้วย','แยกอิสระ ฮีทปั๊มคุมน้ำในถัง วาล์วน้ำร้อนคุมลม'],['แหล่งความร้อนสำรอง','ไม่มี ขึ้นกับคอมเพรสเซอร์ ณ ขณะนั้น','มีถังน้ำร้อน อุณหภูมิคงที่ ดึงใช้ได้ทันที'],['ตัวปรับ','วาล์วน้ำยา หรือโซลินอยด์เปิด-ปิด','วาล์วน้ำแบบหรี่ ต่อเนื่อง 0–100%'],['การตอบสนอง','แก๊สเปลี่ยนสถานะและแรงดันเร็ว อุณหภูมิแกว่งได้','น้ำเก็บความร้อนได้มาก เปลี่ยนแปลงนุ่มนวล'],['ความแม่นยำ','±0.5–2°C','±0.3–0.5°C']]),
+text:'<h2>การควบคุมอุณหภูมิ: Hot gas กับ Heat pump</h2><p>เรียงตามความแม่นยำ: <b>Heater (±0.2–0.5°C) > Heat pump (±0.3–0.5°C) > Hot gas (±0.5–2°C)</b></p><ol><li><b>วงจรแยกกัน:</b> heat pump ไม่รบกวนคอยล์เย็น ส่วน hot gas ใช้คอมเพรสเซอร์ร่วมกับคอยล์ DX</li><li><b>มีถังน้ำร้อน:</b> ความร้อนพร้อมใช้เสมอ แม้ภาระความเย็นต่ำ</li><li><b>วาล์วน้ำหรี่ได้ละเอียด:</b> ตอบสนองเป็นเส้นตรงและคาดเดาได้</li><li><b>น้ำเปลี่ยนอุณหภูมิช้า:</b> ไม่กระชาก</li></ol><p>Heater แม่นที่สุดเพราะ SCR หรี่ไฟได้ทันที ในทางปฏิบัติ hot gas แบบวาล์วหรี่ร่วมกับคอมเพรสเซอร์อินเวอร์เตอร์ก็คุมได้ดีพอ และหลายโครงการติด heater ตัวเล็กไว้ปรับละเอียดอีกชั้น</p>'},
+chw:{n:'ระบบน้ำชิลกับแอร์แยกส่วน',sub:'เมื่อไหร่ควรใช้ระบบส่วนกลาง',
+body:()=>tbl(['หัวข้อ','ระบบน้ำชิล','แอร์แยกส่วน / VRF'],[['ค่าไฟ','~0.55–0.7 kW ต่อตันความเย็น','~1.0–1.3 kW ต่อตัน'],['ระยะส่งความเย็น','หลายร้อยเมตร ทุกชั้น','จำกัดด้วยความยาวท่อน้ำยา'],['ความปลอดภัย','ในอาคารมีแต่ท่อน้ำ','มีน้ำยาแอร์ในพื้นที่ที่มีคน'],['ขนาดเครื่องรวม','เล็กกว่าผลรวมทุกห้อง','เท่ากับผลรวมทุกห้อง'],['เครื่องสำรอง','N+1 ส่วนกลางได้ง่าย','ต้องสำรองทีละจุด'],['การดูแล','รวมที่ห้องเครื่อง ต้องดูแลคุณภาพน้ำ','คอมเพรสเซอร์กระจายทั่วอาคาร'],['อายุใช้งาน','20–30 ปี','10–15 ปี'],['ค่าลงทุน','สูง','ต่ำกว่าสำหรับอาคารเล็ก']]),
+text:'<h2>ระบบน้ำชิลกับแอร์แยกส่วน</h2><p>ในอาคารใหญ่อย่างโรงพยาบาล ระบบน้ำชิลส่วนกลางประหยัดกว่า ดูแลง่ายกว่า และเชื่อถือได้มากกว่า</p><h3>เมื่อไหร่แอร์แยกหรือ VRF เหมาะกว่า</h3><ul><li>อาคารเล็กหรือห้องไม่มาก</li><li>ห้องที่ใช้งานคนละเวลากับส่วนอื่นของอาคาร</li><li>งานที่ต้องเย็นกว่าที่น้ำชิลทำได้ เช่น คอยล์ DX ที่รีดความชื้นให้ถึงจุดน้ำค้าง ~5°C</li></ul><p><b>ระบบที่ออกแบบไว้จึงใช้ร่วมกัน:</b> น้ำชิลรับภาระความเย็นส่วนใหญ่อย่างประหยัด และ DX ช่วยเฉพาะช่วงที่ต้องเย็นจัด</p>'},
+hp:{n:'Heat pipe กับ Heat recovery heat pump',sub:'อุปกรณ์ย้ายความร้อน 2 แบบ',
+body:()=>tbl(['หัวข้อ','Heat pipe','Heat recovery heat pump'],[['การใช้ไฟ','ไม่ใช้','ใช้ (คอมเพรสเซอร์)'],['ชิ้นส่วนเคลื่อนที่','ไม่มี','มี'],['ทิศทางความร้อน','จากที่ร้อนไปที่เย็นเท่านั้น','จากที่เย็นไปที่ร้อนได้'],['สื่อที่ใช้','ลม (ติดคร่อมคอยล์ใน AHU)','น้ำ (ผลิตน้ำเย็นและน้ำร้อนส่งไปคอยล์)'],['ราคา / การดูแล','ถูก ดูแลแทบไม่ต้อง','แพง ดูแลเหมือนชิลเลอร์'],['เหมาะกับ','pre-cool + reheat ใน DOAS','โครงการหลายห้องที่ต้องการทั้งน้ำเย็นและน้ำร้อน']]),
+text:'<h2>Heat pipe กับ Heat recovery heat pump</h2><p>ทั้งสองแบบย้ายความร้อนจากที่หนึ่งไปอีกที่หนึ่ง แต่ heat pipe ทำได้เองโดยไม่ใช้ไฟ ส่วน heat recovery heat pump ใช้คอมเพรสเซอร์ จึงย้ายความร้อนจากที่เย็นไปที่ร้อนได้</p><p><b>สำหรับโครงการนี้แนะนำ heat pipe</b> เพราะราคาถูก ไม่ใช้ไฟ ดูแลง่าย ส่วน heat recovery heat pump ไม่จำเป็น เพราะมีแค่ 2 ห้อง และน้ำเย็น ~5°C ที่เครื่องผลิตได้ยังรีดความชื้นให้ถึง 40–50% ไม่พอ ต้องใช้คอยล์ DX อยู่ดี</p>'},
+ceil:{n:'ฝ้าแซนวิชพาเนลกับคอมแพคลามิเนต',sub:'วัสดุฝ้าเพดานห้องผ่าตัด',
+body:()=>tbl(['หัวข้อ','แซนวิชพาเนล','คอมแพคลามิเนต'],[['โครงสร้าง','ผิวเหล็กเคลือบสี/สแตนเลส ไส้ฉนวน PU/PIR/ร็อควูล','แผ่นลามิเนตอัดแน่นเนื้อเดียว'],['ฉนวนในตัว','มี กันหยดน้ำเกาะ','ไม่มี ต้องติดฉนวนเพิ่ม'],['น้ำหนัก','เบาเมื่อเทียบกับความแข็งแรง','หนัก (~14 กก./ตร.ม. ที่ 10 มม.)'],['เดินบนฝ้าได้','ได้ (แบบ walkable)','ไม่ได้'],['รอยต่อ','น้อย แผ่นยาวได้หลายเมตร','มากกว่า ขนาดแผ่นจำกัด'],['ผิวทนทาน','ดี','ดีกว่า ทนรอยขีดข่วน แรงกระแทก และสารเคมี'],['ทนน้ำ','ดี','100% ไม่มีไส้ที่จะบวม'],['ราคารวมโครงและฉนวน','ถูกกว่า','แพงกว่า'],['กันไฟ','ใช้ไส้ร็อควูลหรือ PIR','ใช้เกรด FR']]),
+text:'<h2>ฝ้าแซนวิชพาเนลกับคอมแพคลามิเนต</h2><p>สำหรับ<b>ฝ้าเพดาน</b>ห้องผ่าตัด <b>แซนวิชพาเนลเหมาะกว่า</b> เพราะมีฉนวนในตัว เบา เดินบนฝ้าได้ และรอยต่อน้อย ช่วยรักษาแรงดันบวกได้ดี</p><p>คอมแพคลามิเนตเด่นเรื่องผิวทนทาน จึงนิยมใช้ทำ<b>ผนังช่วงล่าง</b> (สูงราว 1.2–1.5 ม.) หรือโซนที่รถเข็นเตียงชนบ่อย</p><h3>ข้อควรระวังของฝ้าแซนวิชพาเนล</h3><ul><li>ไส้ PU ติดไฟได้ ในโรงพยาบาลควรใช้ไส้ร็อควูลหรือ PIR ที่ผ่านมาตรฐานกันไฟ</li><li>วางแผนช่องเปิดให้ครบตั้งแต่ต้น ทั้งโคม หัวจ่ายลม แผง laminar และจุดแขวนโคมผ่าตัด</li><li>โคมผ่าตัดและเพนแดนท์ต้องยึดกับโครงสร้างเหล็กเหนือฝ้า ห้ามแขวนกับแผ่นฝ้า</li></ul>'}};
+V.compare={name:'เปรียบเทียบ',legend:()=>[],html:1,
+tabsFn:()=>Object.entries(CMP).map(([k,o])=>[k,o.n]),
+svg:()=>{const o=CMP[S.cmp];return `<div class="cmpwrap"><div class="cmpcard"><h2>${o.n}</h2><p class="sub">${o.sub}</p>${o.body()}</div></div>`},
+text:()=>CMP[S.cmp].text,items:{}};
+
+const ORDER=['overview','chw','valves','ahu','reheat','doas','room','compare'];
+const $=id=>document.getElementById(id);
+const nav=$('nav'),dia=$('dia'),panel=$('panel'),tabs=$('tabs'),legend=$('legend');
+nav.innerHTML=ORDER.map(k=>`<button data-go="${k}">${V[k].name}</button>`).join('');
+function render(){
+const v=V[S.view];
+nav.querySelectorAll('button').forEach(b=>b.setAttribute('aria-current',b.dataset.go===S.view?'page':'false'));
+$('m-doas').setAttribute('aria-pressed',S.mode==='doas');$('m-rh').setAttribute('aria-pressed',S.mode==='reheat');
+if(v.tabs)tabs.innerHTML=v.tabs.map(([k,n])=>`<button data-tab="${k}" aria-pressed="${S.tab===k}">${n}</button>`).join('');
+else if(v.tabsFn)tabs.innerHTML=v.tabsFn().map(([k,n])=>`<button data-cmp="${k}" aria-pressed="${S.cmp===k}">${n}</button>`).join('');
+else tabs.innerHTML='';
+dia.innerHTML=v.svg();
+legend.innerHTML=v.legend().map(k=>{const[n,c,dash]=LEG[k];return `<span><i style="border-top-color:${COL[c]};${dash?'border-top-style:dashed':''}"></i>${n}</span>`}).join('');
+if(S.info&&v.items[S.info]){const[t,h]=v.items[S.info];panel.innerHTML=`<button class="back" data-back="1">← กลับไปคำอธิบายหน้านี้</button><h2>${t}</h2>${h}`;dia.querySelectorAll(`[data-i="${S.info}"]`).forEach(g=>g.classList.add('sel'))}
+else panel.innerHTML=v.text();
+document.title=S.view==='overview'?'ระบบปรับอากาศห้องผ่าตัด':`${v.name} · ระบบปรับอากาศห้องผ่าตัด`;
+}
+function go(k){if(!V[k])return;S.view=k;S.info=null;if(location.hash!=='#'+k)location.hash=k;render();panel.scrollTop=0;dia.scrollTop=0}
+function togglePanel(force){const hide=force===true?false:!document.body.classList.contains('nopanel');document.body.classList.toggle('nopanel',hide);$('ptgl').textContent=hide?'แสดงคำบรรยาย':'ซ่อนคำบรรยาย';$('ptgl').setAttribute('aria-expanded',String(!hide))}
+function act(t){
+const g=t.closest('[data-go],[data-i],[data-tab],[data-cmp],[data-mode],[data-back]');if(!g)return false;
+if(g.dataset.back){S.info=null;render();return true}
+if(g.dataset.mode){S.mode=g.dataset.mode;S.info=null;try{localStorage.setItem('or-mode',S.mode)}catch(e){}render();return true}
+if(g.dataset.tab){S.tab=g.dataset.tab;S.info=null;render();return true}
+if(g.dataset.cmp){S.cmp=g.dataset.cmp;render();panel.scrollTop=0;dia.scrollTop=0;return true}
+if(g.dataset.go){go(g.dataset.go);return true}
+if(g.dataset.i){S.info=g.dataset.i;render();if(document.body.classList.contains('nopanel'))togglePanel(true);panel.scrollTop=0;return true}
+return false}
+document.addEventListener('click',e=>{act(e.target)});
+document.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('[role=button]')){e.preventDefault();act(e.target)}});
+$('ptgl').addEventListener('click',()=>togglePanel());
+window.addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(V[h]&&h!==S.view){S.view=h;S.info=null;render()}});
+const h0=location.hash.slice(1);if(V[h0])S.view=h0;
+if(matchMedia('(max-width:760px)').matches)togglePanel();
+render();
+}
+</script>
+<script>if("serviceWorker" in navigator&&location.protocol.startsWith("http")){addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}))}</script>
+</body>
+</html>
